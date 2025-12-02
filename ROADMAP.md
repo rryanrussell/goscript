@@ -1,0 +1,487 @@
+# goscript Development Roadmap
+
+## Vision
+
+Expand goscript from a minimal transpiler to a more complete Go→JavaScript compiler while maintaining **clean, readable output** as the north star. Accept modest runtime overhead (~10-50KB) when necessary for core features.
+
+## Philosophy
+
+- **Coherent JavaScript preferred**: Compile-time transformations over runtime emulation
+- **Balanced runtime**: Accept runtime helpers for features that can't be cleanly compiled
+- **Educational clarity**: Keep code readable; this is a learning tool
+- **No WASM**: Pure JavaScript output (browsers can optimize it)
+
+---
+
+## Phase 1: Foundation (Complete Current Gaps) [Small]
+
+**Status**: Currently ~60% of basic Go supported
+
+### Missing Control Flow
+- [ ] **Else/Else-if clauses** (js/stmt.go, transpiler/transpiler.go)
+  - Currently `if` has no else support
+  - **Approach**: Compile-time - extend IfStmt in JS AST
+
+- [ ] **Switch statements** (new: js/switch.go, transpiler case)
+  - **Approach**: Compile-time - transform to if/else chain or JS switch
+
+- [ ] **Break/Continue** (js/stmt.go)
+  - **Approach**: Compile-time - direct JS equivalents
+
+- [ ] **Labeled statements & goto** (low priority)
+  - **Approach**: Compile-time if simple, runtime labels if complex
+
+### Missing Built-in Operations
+- [ ] **Slice expressions** `arr[1:3]` (transpiler.go line ~200)
+  - **Approach**: Compile-time → `arr.slice(1, 3)`
+  - DOCS CLAIM this works but it's NOT IMPLEMENTED
+
+- [ ] **`copy()` builtin** (runtime or compile-time)
+  - **Approach**: Runtime function `runtime.copy(dst, src)`
+  - Or compile-time → `dst.splice(0, src.length, ...src.slice(0, dstCap))`
+
+- [ ] **`make()` builtin** for slices/maps
+  - **Approach**: Runtime function
+  - `make([]int, 5)` → `runtime.makeSlice(5, 0)` (returns array of length 5)
+  - `make(map[K]V)` → `runtime.makeMap()` (returns JS Map)
+
+- [ ] **Better `append()` support** - currently limited to 2 args
+  - **Approach**: Compile-time - expand spread to handle variadic
+  - `append(arr, a, b, c)` → `[...(arr ?? []), a, b, c]`
+
+### Type System Basics
+- [ ] **Type switches** (requires runtime type info)
+  - **Approach**: Runtime - attach `__goType` property to values
+  - Compile switch to if/else checking `__goType`
+
+- [ ] **Better type assertions** (currently tracked but not enforced)
+  - **Approach**: Runtime - check `__goType`, panic on mismatch
+
+- [ ] **Map operations** (currently no special handling)
+  - **Approach**: Runtime - use JS Map with helpers
+  - `m[k]` → `runtime.mapGet(m, k, defaultValue)`
+  - `m[k] = v` → `runtime.mapSet(m, k, v)`
+
+### Multiple Return Values
+- [ ] **Better unpacking** (currently packs to array)
+  - **Approach**: Compile-time - detect context
+  - `a, b := foo()` → `const [a, b] = foo()`
+  - `a, ok := m[k]` → Special case for map access
+
+---
+
+## Phase 2: Standard Library Essentials [Medium]
+
+**Goal**: Provide JS implementations of critical Go stdlib packages
+
+### strings package (runtime: runtime/strings.js)
+- [ ] `strings.Contains(s, substr)` → `s.includes(substr)`
+- [ ] `strings.HasPrefix(s, prefix)` → `s.startsWith(prefix)`
+- [ ] `strings.HasSuffix(s, suffix)` → `s.endsWith(suffix)`
+- [ ] `strings.Split(s, sep)` → `s.split(sep)`
+- [ ] `strings.Join(arr, sep)` → `arr.join(sep)`
+- [ ] `strings.ToUpper/ToLower` → `s.toUpperCase()` / `s.toLowerCase()`
+- [ ] `strings.Trim, TrimSpace` → regex or manual
+- [ ] `strings.Replace` → `s.replaceAll(old, new)`
+
+### fmt package (expand link/fmt.js)
+- [x] `fmt.Println` (already exists)
+- [x] `fmt.Errorf` (basic version exists)
+- [ ] `fmt.Sprintf` - proper format string parsing
+- [ ] `fmt.Printf` → console.log with formatting
+- [ ] Support for `%v`, `%s`, `%d`, `%f`, `%t`, `%x`, `%p` verbs
+
+### errors package (runtime: runtime/errors.js)
+- [ ] `errors.New(msg)` → `new Error(msg)`
+- [ ] `errors.Is(err, target)` → error chain checking
+- [ ] `errors.As(err, target)` → type assertion for errors
+- [ ] `fmt.Errorf` with `%w` for error wrapping
+
+### strconv package (runtime: runtime/strconv.js)
+- [ ] `strconv.Atoi(s)` → `parseInt(s, 10)`
+- [ ] `strconv.Itoa(n)` → `String(n)`
+- [ ] `strconv.ParseFloat(s, bits)` → `parseFloat(s)`
+- [ ] `strconv.FormatInt/FormatFloat` → String() with radix
+
+### math package (runtime: runtime/math.js)
+- [ ] Constants: `math.Pi`, `math.E`, etc. → `Math.PI`, `Math.E`
+- [ ] Functions: `math.Sqrt`, `math.Pow`, `math.Sin`, etc. → `Math.*`
+- [ ] `math.Floor/Ceil/Round` → `Math.floor()` etc.
+- [ ] `math.Max/Min` → `Math.max/min`
+- [ ] `math.Abs` → `Math.abs`
+
+### time package (runtime: runtime/time.js)
+- [ ] `time.Now()` → `new Date()`
+- [ ] `time.Since(t)` → `Date.now() - t`
+- [ ] `time.Sleep(d)` → `await runtime.sleep(ms)` (requires async)
+- [ ] `time.Duration` type → number (milliseconds)
+- [ ] Basic duration parsing
+
+### sort package (runtime: runtime/sort.js)
+- [ ] `sort.Ints(arr)` → `arr.sort((a,b) => a - b)`
+- [ ] `sort.Strings(arr)` → `arr.sort()`
+- [ ] `sort.Sort(data)` → custom comparator
+- [ ] `sort.Slice(arr, less)` → `arr.sort(less)`
+
+---
+
+## Phase 3: Interfaces & Method Dispatch [Medium]
+
+**Goal**: Enable polymorphism via interface types
+
+### Runtime Type Information
+- [ ] **Attach type metadata** to all values
+  - Structs get `__goType: "pkg.StructName"`
+  - Functions get `__goType: "func(...)"`
+
+### Interface Implementation
+- [ ] **Interface types** (transpiler support)
+  - Parse `type I interface { Method() }` in Go AST
+  - Generate JS class for interface wrapper
+
+- [ ] **Interface assignments** (runtime checks)
+  - `var i I = structValue` → check if struct has required methods
+  - Wrap struct in interface proxy object
+
+- [ ] **Method dispatch** (runtime)
+  - `i.Method()` → lookup method in proxy, forward to underlying value
+
+- [ ] **Type assertions** (runtime)
+  - `v := i.(ConcreteType)` → unwrap interface, check type, panic if wrong
+  - `v, ok := i.(ConcreteType)` → return (value, false) on mismatch
+
+**Approach**:
+```javascript
+// Runtime support
+class Interface {
+  constructor(value, methods) {
+    this.__value = value;
+    this.__methods = methods; // map of method name → bound function
+  }
+  // Proxy all interface methods
+}
+
+function assertInterface(value, requiredMethods) {
+  // Check if value has all required methods
+  // Return Interface wrapper
+}
+```
+
+
+
+---
+
+## Phase 4: Defer & Panic/Recover [Medium]
+
+### Defer Statement
+- [ ] **Compile-time transformation**
+  - Track defer stack for each function
+  - Generate try/finally blocks
+
+**Example**:
+```go
+func foo() {
+  defer cleanup()
+  defer log()
+  doWork()
+}
+```
+
+**Transpile to**:
+```javascript
+function foo() {
+  const __defer = [];
+  try {
+    __defer.push(() => cleanup());
+    __defer.push(() => log());
+    doWork();
+  } finally {
+    while (__defer.length) __defer.pop()();
+  }
+}
+```
+
+### Panic/Recover
+- [ ] **Runtime support** (expand existing panic in link/fmt.js)
+  - `panic(err)` → throw new GoPanic(err)
+  - `recover()` → catch GoPanic in defer, return error
+
+- [ ] **Compile-time support**
+  - Wrap function bodies in try/catch for recover
+  - Only if function has defer with recover()
+
+
+
+---
+
+## Phase 5: Goroutines & Channels [Large]
+
+**Goal**: Map goroutines to async/await, channels to async queues
+
+### Goroutines → Async Functions
+- [ ] **Transform `go` statements**
+  - `go foo()` → `runtime.go(() => foo())`
+  - Runtime spawns Promise, tracks in scheduler
+
+- [ ] **Transform goroutine functions to async**
+  - Functions called with `go` become async
+  - Propagate async up call chain as needed
+
+- [ ] **Main function becomes async**
+  - Entry point waits for all goroutines
+
+**Example**:
+```go
+func main() {
+  go worker()
+  time.Sleep(1 * time.Second)
+}
+
+func worker() {
+  // do work
+}
+```
+
+**Transpile to**:
+```javascript
+async function main() {
+  runtime.go(worker); // Start worker in background
+  await runtime.sleep(1000);
+  await runtime.waitAll(); // Wait for goroutines
+}
+
+async function worker() {
+  // do work
+}
+```
+
+### Channels
+- [ ] **Channel type** (runtime: runtime/chan.js)
+  - `ch := make(chan int)` → `runtime.makeChan()`
+  - Implemented as async queue (Promise-based)
+
+- [ ] **Channel send** (compile to runtime call)
+  - `ch <- value` → `await runtime.send(ch, value)`
+
+- [ ] **Channel receive** (compile to runtime call)
+  - `v := <-ch` → `const v = await runtime.recv(ch)`
+  - `v, ok := <-ch` → `const [v, ok] = await runtime.recvOk(ch)`
+
+- [ ] **Buffered channels**
+  - `make(chan int, 10)` → queue with capacity
+
+- [ ] **Close channels**
+  - `close(ch)` → mark channel closed, pending receives get default value
+
+### Select Statement
+- [ ] **Transform select to Promise.race**
+  - Each case becomes a Promise
+  - Select waits for first to resolve
+
+**Example**:
+```go
+select {
+case v := <-ch1:
+  handle(v)
+case ch2 <- val:
+  // sent
+default:
+  // default
+}
+```
+
+**Transpile to**:
+```javascript
+const result = await runtime.select([
+  { type: 'recv', chan: ch1, handler: (v) => handle(v) },
+  { type: 'send', chan: ch2, value: val, handler: () => {} },
+  { type: 'default', handler: () => {} }
+]);
+```
+
+
+
+---
+
+## Phase 6: Reflection (Limited) [Large]
+
+**Goal**: Basic reflection for JSON marshaling, etc.
+
+- [ ] **Type metadata** (expand runtime type info)
+  - `reflect.TypeOf(v)` → return type descriptor
+  - `reflect.ValueOf(v)` → return value wrapper
+
+- [ ] **Struct field iteration**
+  - `t.NumField()`, `t.Field(i)` → introspect struct
+
+- [ ] **Field access by name**
+  - `v.FieldByName("X")` → get/set field
+
+- [ ] **Method calls by name**
+  - `v.MethodByName("Foo")` → get method
+
+**Approach**:
+- Generate metadata at compile time for each struct
+- Store in `__goReflect` property
+- Runtime functions access metadata
+
+
+
+---
+
+## Phase 7: Advanced Features [Future]
+
+### Generics (Type Parameters)
+- [ ] **Simple generics** for functions
+  - Compile-time monomorphization (generate version per type)
+  - Or runtime with type erasure (like TypeScript)
+
+- [ ] **Generic types**
+  - `type Stack[T any] struct { items []T }`
+  - Generate JS class per instantiation
+
+### Method Values
+- [ ] Currently limited support
+- [ ] Bind `this` correctly for method values
+- [ ] `f := obj.Method` → `f = obj.Method.bind(obj)`
+
+### Closures (Improved)
+- [ ] Basic closures work (FuncLit)
+- [ ] Ensure captured variables work correctly
+- [ ] Handle closure over loop variables (common Go gotcha)
+
+---
+
+## Runtime Size Projections
+
+| Phase | Feature Set | Estimated Runtime Size |
+|-------|-------------|------------------------|
+| **Phase 1** | Control flow, builtins, maps | ~5-8 KB |
+| **Phase 2** | Stdlib (strings, fmt, errors, math) | ~15-25 KB |
+| **Phase 3** | Interfaces & type assertions | ~25-40 KB |
+| **Phase 4** | Defer, panic/recover | ~30-45 KB |
+| **Phase 5** | Goroutines, channels, select | **50-75 KB** |
+| **Phase 6** | Reflection (limited) | ~65-95 KB |
+
+**Target**: Stay under 100KB total runtime (minified)
+
+---
+
+## Code Organization
+
+### New files to create:
+
+```
+goscript/
+├── runtime/
+│   ├── runtime.js          # Core runtime (make, copy, type checks)
+│   ├── strings.js          # strings package
+│   ├── fmt.js              # fmt package (move from link/fmt.js)
+│   ├── errors.js           # errors package
+│   ├── strconv.js          # strconv package
+│   ├── math.js             # math package
+│   ├── time.js             # time package
+│   ├── sort.js             # sort package
+│   ├── interface.js        # Interface dispatch
+│   ├── defer.js            # Defer/panic/recover
+│   ├── chan.js             # Channels & goroutines
+│   └── reflect.js          # Reflection (limited)
+├── transpiler/
+│   ├── transpiler.go       # Existing - add new AST cases
+│   ├── async.go            # NEW - goroutine→async transformation
+│   └── defer.go            # NEW - defer→try/finally transformation
+└── link/
+    └── runtime.go          # NEW - include runtime/*.js files
+```
+
+---
+
+## Testing Strategy
+
+### Current: Manual testing only
+
+### Proposed:
+1. **Unit tests** for transpiler (transpiler_test.go)
+   - Test each Go construct → expected JS output
+
+2. **Integration tests** (tests/)
+   - Write Go programs, transpile, run in Node.js
+   - Verify output matches expected
+
+3. **Browser tests** (tests/browser/)
+   - Load transpiled JS in headless browser
+   - Verify DOM manipulation works
+
+4. **Benchmark suite**
+   - Measure transpilation time
+   - Measure runtime performance vs native JS
+   - Track runtime size growth
+
+---
+
+## Success Metrics
+
+| Metric | Current | Phase 1 | Phase 3 | Phase 5 |
+|--------|---------|---------|---------|---------|
+| **Go coverage** | ~15% | ~40% | ~65% | ~85% |
+| **Runtime size** | ~1 KB | ~8 KB | ~40 KB | ~75 KB |
+| **Stdlib packages** | 1 (partial fmt) | 5 | 8 | 12 |
+| **Example apps** | 1 (webgl) | 3 | 5 | 8 |
+| **Test coverage** | 0% | 30% | 50% | 70% |
+
+---
+
+## Non-Goals
+
+**Will NOT support:**
+- Full standard library (os, net/http, database/sql, etc.)
+- CGo or system calls
+- Assembly code
+- Build tags / conditional compilation
+- Go modules / dependency management (use browser imports)
+- Full compatibility with GopherJS (different goals)
+
+**Use WASM for:**
+- Production applications requiring full Go
+- High-performance computing
+- Existing Go codebases without modification
+
+---
+
+## Timeline Summary
+
+| Phase | Effort | Key Deliverable |
+|-------|----------|-----------------|
+| **Phase 1** | Small | Complete basic Go support |
+| **Phase 2** | Medium | Essential stdlib packages |
+| **Phase 3** | Medium | Interfaces working |
+| **Phase 4** | Medium | Defer/panic/recover |
+| **Phase 5** | Large | Async/await goroutines |
+| **Phase 6+** | Large | Reflection, advanced features |
+
+**Total**: Significant effort to reach ~85% Go coverage with clean JS output
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute to this roadmap.
+
+**Priority areas for contributors:**
+- Phase 1 features (else clauses, switch, slice expressions)
+- Stdlib package implementations (strings, math, etc.)
+- Test suite development
+- Documentation improvements
+- Example applications
+
+---
+
+## Credits
+
+This roadmap was developed with assistance from:
+- **Claude Sonnet 4.5** (claude-sonnet-4-5-20250929) - AI model by Anthropic
+- **Claude Code** - AI-powered coding agent CLI (claude.ai/code)
+
+Original transpiler implementation (2022) by Ryan Russell.
+
+Roadmap planning session (December 2025) utilized Claude Code's planning agents to analyze the existing codebase and design expansion strategies.
