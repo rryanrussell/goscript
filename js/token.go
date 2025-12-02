@@ -17,6 +17,7 @@ const (
 	Colon    Token      = ":"
 	Eq       Token      = "="
 	If       Token      = "if"
+	Else     Token      = "else"
 	For      Token      = "for"
 	While    Token      = "while"
 	Let      Token      = "let"

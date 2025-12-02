@@ -234,9 +234,14 @@ func block(ctx *Context, b *ast.BlockStmt) *js.Block {
 }
 
 func ifs(ctx *Context, i *ast.IfStmt) *js.IfStmt {
+	var els js.Stmt
+	if i.Else != nil {
+		els = statement(ctx, i.Else)
+	}
 	return &js.IfStmt{
 		Cond: expr(ctx, i.Cond),
 		Body: block(ctx, i.Body),
+		Else: els,
 	}
 }
 
@@ -352,6 +357,8 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		return fors(ctx, stmt)
 	case *ast.RangeStmt:
 		return ranges(ctx, stmt)
+	case *ast.BlockStmt:
+		return block(ctx, stmt)
 	case *ast.DeclStmt:
 		decl := stmt.Decl.(*ast.GenDecl)
 		if len(decl.Specs) != 1 {
