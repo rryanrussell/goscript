@@ -30,3 +30,5 @@ func (b *Block) Print(c PrintContext) {
 func (b *Block) Walk(v Visitor) {
 	Stroll(v, b.Lines)
 }
+
+func (Block) stmtNode() {}

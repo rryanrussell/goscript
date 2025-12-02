@@ -234,10 +234,24 @@ func block(ctx *Context, b *ast.BlockStmt) *js.Block {
 }
 
 func ifs(ctx *Context, i *ast.IfStmt) *js.IfStmt {
-	return &js.IfStmt{
+	result := &js.IfStmt{
 		Cond: expr(ctx, i.Cond),
 		Body: block(ctx, i.Body),
 	}
+
+	// Handle else clause
+	if i.Else != nil {
+		switch els := i.Else.(type) {
+		case *ast.BlockStmt:
+			// Simple else block
+			result.Else = block(ctx, els)
+		case *ast.IfStmt:
+			// Else-if chain
+			result.Else = ifs(ctx, els)
+		}
+	}
+
+	return result
 }
 
 func fors(ctx *Context, f *ast.ForStmt) js.Stmt {

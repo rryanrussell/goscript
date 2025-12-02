@@ -51,15 +51,39 @@ func (a *Assign) Walk(v Visitor) {
 type IfStmt struct {
 	Cond Expr
 	Body *Block
+	Else Stmt // nil, *Block, or *IfStmt for else-if
 }
 
 func (i *IfStmt) Print(c PrintContext) {
-	WriteAll(c, If, Space, Lparen, i.Cond, Rparen, i.Body)
+	WriteAll(c, If, Space, Lparen, i.Cond, Rparen)
+
+	// For blocks with else clause, we need to print them inline
+	if i.Else != nil && i.Body != nil {
+		// Temporarily mark body as inline to prevent trailing newline
+		wasInline := i.Body.Inline
+		i.Body.Inline = true
+		WriteAll(c, i.Body)
+		i.Body.Inline = wasInline
+
+		WriteAll(c, Space, Else)
+		// For else-if, we print space + the if statement
+		// For else block, we print the block directly
+		if _, isIf := i.Else.(*IfStmt); isIf {
+			WriteAll(c, Space, i.Else)
+		} else {
+			WriteAll(c, i.Else, Newline)
+		}
+	} else {
+		WriteAll(c, i.Body)
+	}
 }
 
 func (i *IfStmt) Walk(v Visitor) {
 	v.Visit(i.Cond)
 	v.Visit(i.Body)
+	if i.Else != nil {
+		v.Visit(i.Else)
+	}
 }
 
 func (ExprStmt) stmtNode() {}
