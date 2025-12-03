@@ -487,6 +487,26 @@ func main() {
 }
 `,
 		},
+		{
+			name: "Copy",
+			src: `
+package main
+
+func main() {
+	a := []int{1, 2, 3}
+	b := make([]int, 3)
+	n := copy(b, a)
+	copy(b, []int{4, 5})
+}
+`,
+			expected: `function main() {
+    let a = [ 1, 2, 3 ]
+    let b = make(__U__, 3)
+    let n = runtime.copy(b, a)
+    runtime.copy(b, [ 4, 5 ])
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

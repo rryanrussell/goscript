@@ -43,9 +43,9 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Status**: Implemented (2-index slicing)
   - **Approach**: Compile-time → `arr.slice(1, 3)`
 
-- [ ] **`copy()` builtin** (runtime or compile-time)
+- [x] **`copy()` builtin** (runtime or compile-time)
+  - **Status**: Implemented
   - **Approach**: Runtime function `runtime.copy(dst, src)`
-  - Or compile-time → `dst.splice(0, src.length, ...src.slice(0, dstCap))`
 
 - [ ] **`make()` builtin** for slices/maps
   - **Approach**: Runtime function
