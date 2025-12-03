@@ -452,6 +452,37 @@ func main() {
 }
 `,
 		},
+		{
+			name: "BreakContinue",
+			src: `
+package main
+
+func main() {
+	for i := 0; i < 10; i++ {
+		if i == 5 {
+			break
+		}
+		if i == 2 {
+			continue
+		}
+	}
+}
+`,
+			expected: `function main() {
+    for (let i = 0;i<10;++i) {
+        if (i==5) {
+            break
+        }
+
+        if (i==2) {
+            continue
+        }
+
+    }
+
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
