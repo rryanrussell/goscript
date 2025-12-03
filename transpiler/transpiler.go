@@ -72,6 +72,28 @@ func index(ctx *Context, s *ast.IndexExpr) *js.Index {
 	}
 }
 
+func sliceExpr(ctx *Context, s *ast.SliceExpr) js.Expr {
+	var args []js.Expr
+
+	if s.Low != nil {
+		args = append(args, expr(ctx, s.Low))
+	} else if s.High != nil {
+		args = append(args, &js.BasicLit{Value: "0"})
+	}
+
+	if s.High != nil {
+		args = append(args, expr(ctx, s.High))
+	}
+
+	return &js.Call{
+		Func: &js.Selector{
+			X:   expr(ctx, s.X),
+			Sel: js.IdentP("slice"),
+		},
+		Args: args,
+	}
+}
+
 func call(ctx *Context, c *ast.CallExpr) js.Expr {
 	id, ok := c.Fun.(*ast.Ident)
 	if ok && id.Name == "len" && len(c.Args) == 1 {
@@ -204,6 +226,8 @@ func expr(ctx *Context, w ast.Expr) js.Expr {
 		}
 	case *ast.IndexExpr:
 		return index(ctx, x)
+	case *ast.SliceExpr:
+		return sliceExpr(ctx, x)
 	case *ast.CompositeLit:
 		return composite(ctx, x)
 	case *ast.BinaryExpr:
