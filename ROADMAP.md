@@ -30,8 +30,8 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Status**: Implemented
   - **Approach**: Compile-time - direct JS equivalents
 
-- [ ] **Full Range Loop Support**
-  - Currently `for i, v := range arr` is NOT supported (returns unknown)
+- [x] **Full Range Loop Support**
+  - Currently `for i, v := range arr` is supported
   - `for i := range arr` and `for _, v := range arr` work
   - **Approach**: Compile-time transformation
 

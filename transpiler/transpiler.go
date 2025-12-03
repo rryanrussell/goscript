@@ -363,7 +363,22 @@ func ranges(ctx *Context, r *ast.RangeStmt) js.Stmt {
 
 	switch {
 	case key != "" && value != "":
-		return &js.ExprStmt{X: unknown(ctx, r)}
+		loop.Iterable = &js.Call{
+			Func: &js.Selector{
+				X:   expr(ctx, r.X),
+				Sel: js.IdentP("entries"),
+			},
+		}
+		loop.Key = &js.VarDecl{
+			Var:    &js.Var{Named: js.NewNamed(key)},
+			Const:  true,
+			Inline: true,
+		}
+		loop.Value = &js.VarDecl{
+			Var:    &js.Var{Named: js.NewNamed(value)},
+			Const:  true,
+			Inline: true,
+		}
 	case key == "" && value == "":
 		return &js.ExprStmt{X: unknown(ctx, r)}
 	case key == "":

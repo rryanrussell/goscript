@@ -228,7 +228,11 @@ func main() {
 `,
 			expected: `function main() {
     let arr = [ 1, 2, 3 ]
-    __U__
+    for (let [i, v] of arr.entries()) {
+        _ = i
+        _ = v
+    }
+
     for (const v of arr) {
         _ = v
     }
