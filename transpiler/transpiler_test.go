@@ -342,6 +342,50 @@ func main() {
 `,
 		},
 		{
+			name: "LabelsAndGoto",
+			src: `
+package main
+
+func main() {
+Outer:
+	for i := 0; i < 5; i++ {
+		for j := 0; j < 5; j++ {
+			if i == 2 {
+				break Outer
+			}
+			if j == 2 {
+				continue Outer
+			}
+			if j == 3 {
+				goto Outer
+			}
+		}
+	}
+}
+`,
+			expected: `function main() {
+    Outer: for (let i = 0;i<5;++i) {
+        for (let j = 0;j<5;++j) {
+            if (i==2) {
+                break Outer
+            }
+
+            if (j==2) {
+                continue Outer
+            }
+
+            if (j==3) {
+                continue Outer
+            }
+
+        }
+
+    }
+
+}
+`,
+		},
+		{
 			name: "SwitchBasic",
 			src: `
 package main

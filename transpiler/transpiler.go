@@ -464,15 +464,26 @@ func branch(ctx *Context, b *ast.BranchStmt) js.Stmt {
 		t = js.Break
 	case token.CONTINUE:
 		t = js.Continue
+	case token.GOTO:
+		t = js.Continue // Approximation: map goto to continue for loops
 	default:
 		ctx.Error(b, fmt.Sprintf("unsupported token %s", b.Tok))
 	}
 
-	return &js.TokenStmt{Token: t}
+	ts := &js.TokenStmt{Token: t}
+	if b.Label != nil {
+		ts.Label = js.IdentP(b.Label.Name)
+	}
+	return ts
 }
 
 func statement(ctx *Context, s ast.Stmt) js.Stmt {
 	switch stmt := s.(type) {
+	case *ast.LabeledStmt:
+		return &js.LabeledStmt{
+			Label: js.IdentP(stmt.Label.Name),
+			Stmt:  statement(ctx, stmt.Stmt),
+		}
 	case *ast.ExprStmt:
 		return &js.ExprStmt{
 			X: expr(ctx, stmt.X),

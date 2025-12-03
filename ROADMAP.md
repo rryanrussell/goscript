@@ -35,7 +35,8 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - `for i := range arr` and `for _, v := range arr` work
   - **Approach**: Compile-time transformation
 
-- [ ] **Labeled statements & goto** (low priority)
+- [x] **Labeled statements & goto** (low priority)
+  - **Status**: Partially implemented (labeled statements, break/continue with labels, goto mapped to continue for loops)
   - **Approach**: Compile-time if simple, runtime labels if complex
 
 ### Missing Built-in Operations

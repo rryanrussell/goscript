@@ -69,8 +69,22 @@ func (i *IfStmt) Walk(v Visitor) {
 	}
 }
 
-func (ExprStmt) stmtNode() {}
-func (IfStmt) stmtNode()   {}
-func (Assign) stmtNode()   {}
-func (Return) stmtNode()   {}
-func (Block) stmtNode()    {}
+type LabeledStmt struct {
+	Label *Ident
+	Stmt  Stmt
+}
+
+func (s *LabeledStmt) Print(c PrintContext) {
+	WriteAll(c, s.Label, Colon, Space, s.Stmt)
+}
+
+func (s *LabeledStmt) Walk(v Visitor) {
+	v.Visit(s.Stmt)
+}
+
+func (ExprStmt) stmtNode()    {}
+func (IfStmt) stmtNode()      {}
+func (Assign) stmtNode()      {}
+func (Return) stmtNode()      {}
+func (Block) stmtNode()       {}
+func (LabeledStmt) stmtNode() {}
