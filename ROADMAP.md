@@ -15,26 +15,33 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
 
 ## Phase 1: Foundation (Complete Current Gaps) [Small]
 
-**Status**: Currently ~60% of basic Go supported
+**Status**: Currently ~70% of basic Go supported
 
 ### Missing Control Flow
-- [ ] **Else/Else-if clauses** (js/stmt.go, transpiler/transpiler.go)
-  - Currently `if` has no else support
+- [x] **Else/Else-if clauses** (js/stmt.go, transpiler/transpiler.go)
+  - **Status**: Implemented
   - **Approach**: Compile-time - extend IfStmt in JS AST
 
-- [ ] **Switch statements** (new: js/switch.go, transpiler case)
+- [x] **Switch statements** (new: js/switch.go, transpiler case)
+  - **Status**: Implemented (basic value switch)
   - **Approach**: Compile-time - transform to if/else chain or JS switch
 
-- [ ] **Break/Continue** (js/stmt.go)
+- [x] **Break/Continue** (js/stmt.go)
+  - **Status**: Implemented
   - **Approach**: Compile-time - direct JS equivalents
+
+- [ ] **Full Range Loop Support**
+  - Currently `for i, v := range arr` is NOT supported (returns unknown)
+  - `for i := range arr` and `for _, v := range arr` work
+  - **Approach**: Compile-time transformation
 
 - [ ] **Labeled statements & goto** (low priority)
   - **Approach**: Compile-time if simple, runtime labels if complex
 
 ### Missing Built-in Operations
-- [ ] **Slice expressions** `arr[1:3]` (transpiler.go line ~200)
+- [x] **Slice expressions** `arr[1:3]` (transpiler.go line ~200)
+  - **Status**: Implemented (2-index slicing)
   - **Approach**: Compile-time → `arr.slice(1, 3)`
-  - DOCS CLAIM this works but it's NOT IMPLEMENTED
 
 - [ ] **`copy()` builtin** (runtime or compile-time)
   - **Approach**: Runtime function `runtime.copy(dst, src)`
@@ -46,11 +53,14 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - `make(map[K]V)` → `runtime.makeMap()` (returns JS Map)
 
 - [ ] **Better `append()` support** - currently limited to 2 args
+  - `append(arr, val)` works
+  - `append(arr, v1, v2)` is NOT supported
   - **Approach**: Compile-time - expand spread to handle variadic
   - `append(arr, a, b, c)` → `[...(arr ?? []), a, b, c]`
 
 ### Type System Basics
 - [ ] **Type switches** (requires runtime type info)
+  - Currently `switch x.(type)` is not handled
   - **Approach**: Runtime - attach `__goType` property to values
   - Compile switch to if/else checking `__goType`
 
