@@ -314,6 +314,144 @@ func main() {
 }
 `,
 		},
+		{
+			name: "IfInit",
+			src: `
+package main
+
+func main() {
+	if x := 10; x > 5 {
+		println(x)
+	}
+}
+`,
+			expected: `function main() {
+     {
+        let x = 10
+        if (x>5) {
+            println(x)
+        }
+
+    }
+
+}
+`,
+		},
+		{
+			name: "SwitchBasic",
+			src: `
+package main
+
+func main() {
+	x := 10
+	switch x {
+	case 1:
+		println("one")
+	case 2, 3:
+		println("two or three")
+	default:
+		println("other")
+	}
+}
+`,
+			expected: `function main() {
+    let x = 10
+    switch (x) {
+        case 1:
+            println("one")
+            break
+        case 2:
+        case 3:
+            println("two or three")
+            break
+        default:
+            println("other")
+            break
+    }
+}
+`,
+		},
+		{
+			name: "SwitchNoTag",
+			src: `
+package main
+
+func main() {
+	x := 10
+	switch {
+	case x > 5:
+		println("greater than 5")
+	default:
+		println("not greater")
+	}
+}
+`,
+			expected: `function main() {
+    let x = 10
+    switch (true) {
+        case x>5:
+            println("greater than 5")
+            break
+        default:
+            println("not greater")
+            break
+    }
+}
+`,
+		},
+		{
+			name: "SwitchInit",
+			src: `
+package main
+
+func main() {
+	switch x := 10; x {
+	case 10:
+		println(10)
+	}
+}
+`,
+			expected: `function main() {
+     {
+        let x = 10
+        switch (x) {
+            case 10:
+                println(10)
+                break
+        }
+    }
+
+}
+`,
+		},
+		{
+			name: "SwitchFallthrough",
+			src: `
+package main
+
+func main() {
+	x := 1
+	switch x {
+	case 1:
+		println("one")
+		fallthrough
+	case 2:
+		println("two")
+	}
+}
+`,
+			expected: `function main() {
+    let x = 1
+    switch (x) {
+        case 1:
+            println("one")
+        case 2:
+            println("two")
+            break
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

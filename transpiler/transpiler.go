@@ -257,16 +257,76 @@ func block(ctx *Context, b *ast.BlockStmt) *js.Block {
 	return block
 }
 
-func ifs(ctx *Context, i *ast.IfStmt) *js.IfStmt {
+func ifs(ctx *Context, i *ast.IfStmt) js.Stmt {
 	var els js.Stmt
 	if i.Else != nil {
 		els = statement(ctx, i.Else)
 	}
-	return &js.IfStmt{
+
+	ifStmt := &js.IfStmt{
 		Cond: expr(ctx, i.Cond),
 		Body: block(ctx, i.Body),
 		Else: els,
 	}
+
+	if i.Init != nil {
+		block := &js.Block{}
+		block.Lines = append(block.Lines, statement(ctx, i.Init))
+		block.Lines = append(block.Lines, ifStmt)
+		return block
+	}
+
+	return ifStmt
+}
+
+func switches(ctx *Context, s *ast.SwitchStmt) js.Stmt {
+	// Handling Switch
+	sw := &js.SwitchStmt{}
+	if s.Tag != nil {
+		sw.Tag = expr(ctx, s.Tag)
+	}
+
+	sw.Body = &js.CaseBlock{}
+
+	for _, stmt := range s.Body.List {
+		cc, ok := stmt.(*ast.CaseClause)
+		if !ok {
+			continue
+		}
+
+		jsCc := &js.CaseClause{}
+		jsCc.List = exprs(ctx, cc.List)
+
+		// Handle Body
+		hasFallthrough := false
+		for i, st := range cc.Body {
+			// Check for fallthrough (must be last statement)
+			if branch, ok := st.(*ast.BranchStmt); ok && branch.Tok == token.FALLTHROUGH {
+				if i == len(cc.Body)-1 {
+					hasFallthrough = true
+					// Don't emit fallthrough statement in JS
+					continue
+				}
+			}
+			jsCc.Body = append(jsCc.Body, statement(ctx, st))
+		}
+
+		// Add break if no fallthrough
+		if !hasFallthrough {
+			jsCc.Body = append(jsCc.Body, &js.TokenStmt{Token: js.Break})
+		}
+
+		sw.Body.List = append(sw.Body.List, jsCc)
+	}
+
+	if s.Init != nil {
+		block := &js.Block{}
+		block.Lines = append(block.Lines, statement(ctx, s.Init))
+		block.Lines = append(block.Lines, sw)
+		return block
+	}
+
+	return sw
 }
 
 func fors(ctx *Context, f *ast.ForStmt) js.Stmt {
@@ -377,6 +437,8 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		return incdec(ctx, stmt)
 	case *ast.IfStmt:
 		return ifs(ctx, stmt)
+	case *ast.SwitchStmt:
+		return switches(ctx, stmt)
 	case *ast.ForStmt:
 		return fors(ctx, stmt)
 	case *ast.RangeStmt:
