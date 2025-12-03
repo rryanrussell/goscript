@@ -52,11 +52,11 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - `make([]int, 5)` → `runtime.makeSlice(5, 0)` (returns array of length 5)
   - `make(map[K]V)` → `runtime.makeMap()` (returns JS Map)
 
-- [ ] **Better `append()` support** - currently limited to 2 args
-  - `append(arr, val)` works
-  - `append(arr, v1, v2)` is NOT supported
-  - **Approach**: Compile-time - expand spread to handle variadic
+- [x] **Better `append()` support**
+  - **Status**: Implemented
+  - **Approach**: Compile-time expansion with spread operator
   - `append(arr, a, b, c)` → `[...(arr ?? []), a, b, c]`
+  - `append(arr, other...)` → `[...(arr ?? []), ...(other ?? [])]`
 
 ### Type System Basics
 - [ ] **Type switches** (requires runtime type info)

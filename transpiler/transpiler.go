@@ -110,20 +110,39 @@ func call(ctx *Context, c *ast.CallExpr) js.Expr {
 		}
 	}
 
-	if ok && id.Name == "append" && len(c.Args) == 2 {
-		return &js.ArrayLit{
-			Elts: []js.Expr{
-				&js.Spread{
+	if ok && id.Name == "append" && len(c.Args) >= 2 {
+		elts := []js.Expr{
+			&js.Spread{
+				X: &js.Parens{
+					X: &js.Binary{
+						X:  expr(ctx, c.Args[0]),
+						Op: js.HuhHuh,
+						Y:  &js.ArrayLit{},
+					},
+				},
+			},
+		}
+
+		for i, arg := range c.Args[1:] {
+			e := expr(ctx, arg)
+			// Check if this is the last argument and it has an ellipsis (spread)
+			if c.Ellipsis != token.NoPos && i == len(c.Args)-2 {
+				// Safety check for nil slice: ...(arg ?? [])
+				e = &js.Spread{
 					X: &js.Parens{
 						X: &js.Binary{
-							X:  expr(ctx, c.Args[0]),
+							X:  e,
 							Op: js.HuhHuh,
 							Y:  &js.ArrayLit{},
 						},
 					},
-				},
-				expr(ctx, c.Args[1]),
-			},
+				}
+			}
+			elts = append(elts, e)
+		}
+
+		return &js.ArrayLit{
+			Elts: elts,
 		}
 	}
 
