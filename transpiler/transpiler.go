@@ -146,6 +146,16 @@ func call(ctx *Context, c *ast.CallExpr) js.Expr {
 		}
 	}
 
+	if ok && id.Name == "copy" && len(c.Args) == 2 {
+		return &js.Call{
+			Func: &js.Selector{
+				X:   js.Ident("runtime"),
+				Sel: js.IdentP("copy"),
+			},
+			Args: exprs(ctx, c.Args),
+		}
+	}
+
 	return &js.Call{
 		Func: expr(ctx, c.Fun),
 		Args: exprs(ctx, c.Args),
