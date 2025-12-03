@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rryanrussell/goscript/js"
-	"github.com/rryanrussell/goscript/link"
-	x "github.com/rryanrussell/goscript/transpiler"
+	"github.com/rryanrussell/goscript/pkg/js"
+	"github.com/rryanrussell/goscript/pkg/link"
+	x "github.com/rryanrussell/goscript/pkg/transpiler"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 
-	"github.com/rryanrussell/goscript/js"
+	"github.com/rryanrussell/goscript/pkg/js"
 )
 
 type Context = ModuleContext

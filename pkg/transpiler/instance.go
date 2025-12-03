@@ -1,7 +1,7 @@
 package transpiler
 
 import (
-	"github.com/rryanrussell/goscript/js"
+	"github.com/rryanrussell/goscript/pkg/js"
 )
 
 type InitValue struct {

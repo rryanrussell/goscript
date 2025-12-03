@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rryanrussell/goscript/js"
-	x "github.com/rryanrussell/goscript/transpiler"
+	"github.com/rryanrussell/goscript/pkg/js"
+	x "github.com/rryanrussell/goscript/pkg/transpiler"
 )
 
 type LinkContext struct {

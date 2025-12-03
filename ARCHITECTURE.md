@@ -223,6 +223,17 @@ func (f *FuncDecl) Print(ctx *Context) {
 - Whitespace control
 - No source maps (limitation)
 
+### 6. Dommer (Binding Generator)
+
+`dommer` (`pkg/dommer`, `cmd/dommer`) is a standalone tool that automates the creation of `.extern.go` files.
+
+**Pipeline:**
+1. **Input:** Reads TypeScript `.d.ts` files (e.g., `lib.dom.d.ts`).
+2. **Parse:** Uses a custom parallel parser to process TypeScript interfaces and declarations.
+3. **Generate:** Outputs Go structs and function signatures in `goscript`'s `.extern.go` format.
+
+This bridges the gap between the rich ecosystem of TypeScript definitions and `goscript`'s need for strict Go type definitions for external APIs.
+
 ## Type System
 
 **Go types → JS equivalents:**

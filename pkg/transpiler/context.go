@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/rryanrussell/goscript/js"
+	"github.com/rryanrussell/goscript/pkg/js"
 )
 
 type Semantics struct {

@@ -21,6 +21,8 @@ vendor/
 # Build artifacts
 output/
 dist/
+bin/
+lib/
 
 # IDE
 .vscode/

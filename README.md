@@ -93,6 +93,18 @@ func (gl WebGLRenderingContext) ClearColor(r, g, b, a float64)
 
 The transpiler recognizes these as external symbols and generates appropriate JS calls.
 
+### Dommer: Automatic Bindings
+
+`dommer` is a tool included in `goscript` that generates Go extern definitions from TypeScript declaration files (`.d.ts`).
+
+- **Input:** TypeScript definition files (e.g., `lib.dom.d.ts`)
+- **Output:** Go extern files (e.g., `dom.extern.go`)
+- **Purpose:** Automates the creation of type-safe browser API bindings.
+
+```bash
+go run cmd/dommer/main.go -input lib/lib.dom.d.ts -output app/dom.extern.go
+```
+
 ## Architecture
 
 ```
@@ -180,7 +192,7 @@ go run github.com/rryanrussell/goscript ./myapp > output.js
 - No source maps (yet)
 - No optimization passes
 - No minification
-- Requires manual extern definitions
+- Requires manual extern definitions (automated via `dommer`)
 
 **Stability:**
 - No semantic versioning

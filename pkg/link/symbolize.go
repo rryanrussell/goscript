@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"regexp"
 
-	x "github.com/rryanrussell/goscript/transpiler"
+	x "github.com/rryanrussell/goscript/pkg/transpiler"
 )
 
 func ensureMap[T comparable, U any](m *map[T]U) {
