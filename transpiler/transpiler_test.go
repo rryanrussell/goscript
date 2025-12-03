@@ -521,6 +521,24 @@ func main() {
 `,
 			skip: true,
 		},
+		{
+			name: "Copy",
+			src: `
+package main
+
+func main() {
+	src := []int{1, 2, 3}
+	dst := make([]int, 3)
+	n := copy(dst, src)
+}
+`,
+			expected: `function main() {
+    let src = [ 1, 2, 3 ]
+    let dst = runtime.makeSlice(3)
+    let n = runtime.copy(dst, src)
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
