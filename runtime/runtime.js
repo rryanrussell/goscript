@@ -1,17 +1,28 @@
 if (typeof runtime === 'undefined') {
-    runtime = {}
+    var runtime = {}
 }
 
 Object.assign(runtime, {
+    copy(dst, src) {
+        if (!dst || !src || !dst.length || !src.length) {
+            return 0;
+        }
+        let n = 0;
+        const length = Math.min(dst.length, src.length);
+        for (let i = 0; i < length; i++) {
+            dst[i] = src[i];
+            n++;
+        }
+        return n;
+    },
+    // Keep makeSlice/makeMap if they are needed by phase1, or remove if they conflict.
+    // The previous runtime.js had them. I'll keep them but fix makeSlice zero value if needed.
+    // But since I am overwriting, I should include copy.
     makeSlice(len, cap, zero) {
         len = len || 0;
-        // In JS, arrays are dynamic, so we just return an array of length 'len'
-        // filled with 'zero' value (or undefined if not provided)
         return new Array(len).fill(zero);
     },
     makeMap() {
-        // Currently mapped to Object as per existing transpiler logic
-        // If we switch to Map, we need to update IndexExpr handling too.
         return {};
     }
 });
