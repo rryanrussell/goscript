@@ -47,16 +47,20 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Approach**: Runtime function `runtime.copy(dst, src)`
   - Or compile-time → `dst.splice(0, src.length, ...src.slice(0, dstCap))`
 
-- [ ] **`make()` builtin** for slices/maps
+- [x] **`make()` builtin** for slices/maps
+  - **Status**: Implemented
   - **Approach**: Runtime function
   - `make([]int, 5)` → `runtime.makeSlice(5, 0)` (returns array of length 5)
-  - `make(map[K]V)` → `runtime.makeMap()` (returns JS Map)
+  - `make(map[K]V)` → `runtime.makeMap()` (returns JS object)
 
 - [x] **Better `append()` support**
   - **Status**: Implemented
   - **Approach**: Compile-time expansion with spread operator
   - `append(arr, a, b, c)` → `[...(arr ?? []), a, b, c]`
   - `append(arr, other...)` → `[...(arr ?? []), ...(other ?? [])]`
+
+- [ ] **Refactor `call` function in `transpiler/transpiler.go`**
+  - **Goal**: Split built-in handling (append, make, len, etc.) into separate functions to improve readability and maintainability.
 
 ### Type System Basics
 - [ ] **Type switches** (requires runtime type info)
@@ -413,6 +417,7 @@ goscript/
 ### Proposed:
 1. **Unit tests** for transpiler (transpiler_test.go)
    - Test each Go construct → expected JS output
+   - Skipped tests can be used as TODOs for partially supported or planned features.
 
 2. **Integration tests** (tests/)
    - Write Go programs, transpile, run in Node.js
