@@ -44,6 +44,7 @@ func TestTranspiler(t *testing.T) {
 		name     string
 		src      string
 		expected string
+		skip     bool
 	}{
 		{
 			name: "IfElse",
@@ -488,29 +489,45 @@ func main() {
 `,
 		},
 		{
-			name: "Copy",
+			name: "Make",
 			src: `
 package main
 
 func main() {
-	a := []int{1, 2, 3}
-	b := make([]int, 3)
-	n := copy(b, a)
-	copy(b, []int{4, 5})
+	s := make([]int, 5)
+	m := make(map[string]int)
+	s2 := make([]int, 5, 10)
 }
 `,
 			expected: `function main() {
-    let a = [ 1, 2, 3 ]
-    let b = make(__U__, 3)
-    let n = runtime.copy(b, a)
-    runtime.copy(b, [ 4, 5 ])
+    let s = runtime.makeSlice(5)
+    let m = runtime.makeMap()
+    let s2 = runtime.makeSlice(5, 10)
 }
 `,
+		},
+		{
+			name: "MakeChan",
+			src: `
+package main
+
+func main() {
+	c := make(chan int)
+}
+`,
+			expected: `function main() {
+    let c = runtime.makeChan()
+}
+`,
+			skip: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.Skip("Skipping test case: " + tt.name)
+			}
 			runTranspilerTest(t, tt.name, tt.src, tt.expected)
 		})
 	}

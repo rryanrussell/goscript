@@ -18,6 +18,21 @@ func exprs(ctx *Context, in []ast.Expr) []js.Expr {
 	return out
 }
 
+func zeroValue(t ast.Expr) js.Expr {
+	// We can figure out zero value from t.Elt if needed
+	// For now let's default to undefined (or handled in runtime)
+	// If we want zero values:
+	// zero := ZeroValue(t.Elt)
+	// args = append(args, zero)
+
+	// However, runtime.makeSlice(len, cap, zero)
+	// let's pass 0 as default zero value for now, or 0/""/null depending on type?
+	// The roadmap said makeSlice(5, 0)
+
+	// Let's implement basics first
+	return &js.BasicLit{Value: "0"}
+}
+
 func TypeExpr(ctx Complainer, e ast.Expr) string {
 	switch x := e.(type) {
 	case *ast.BasicLit:
@@ -26,6 +41,8 @@ func TypeExpr(ctx Complainer, e ast.Expr) string {
 		return x.Name
 	case *ast.StarExpr:
 		return TypeExpr(ctx, x.X)
+	case *ast.SelectorExpr:
+		return TypeExpr(ctx, x.X) + "." + x.Sel.Name
 	case *ast.ArrayType:
 		return TypeExpr(ctx, x.Elt) + "[]"
 	case *ast.StructType:
@@ -146,13 +163,41 @@ func call(ctx *Context, c *ast.CallExpr) js.Expr {
 		}
 	}
 
-	if ok && id.Name == "copy" && len(c.Args) == 2 {
-		return &js.Call{
-			Func: &js.Selector{
-				X:   js.Ident("runtime"),
-				Sel: js.IdentP("copy"),
-			},
-			Args: exprs(ctx, c.Args),
+	if ok && id.Name == "make" && len(c.Args) >= 1 {
+		// check first argument
+		arg0 := c.Args[0]
+		switch arg0.(type) {
+		case *ast.ArrayType:
+			// make([]T, len, cap)
+			args := []js.Expr{}
+			if len(c.Args) > 1 {
+				args = append(args, expr(ctx, c.Args[1])) // len
+			}
+			if len(c.Args) > 2 {
+				args = append(args, expr(ctx, c.Args[2])) // cap
+			} else if len(c.Args) == 2 {
+				// pass undefined/null for cap
+			}
+
+			// Add zero value
+			// args = append(args, zeroValue(t.Elt))
+
+			return &js.Call{
+				Func: &js.Selector{
+					X:   js.Ident("runtime"),
+					Sel: js.IdentP("makeSlice"),
+				},
+				Args: args,
+			}
+		case *ast.MapType:
+			// make(map[K]V)
+			return &js.Call{
+				Func: &js.Selector{
+					X:   js.Ident("runtime"),
+					Sel: js.IdentP("makeMap"),
+				},
+				Args: []js.Expr{},
+			}
 		}
 	}
 

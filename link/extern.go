@@ -106,8 +106,10 @@ func (scope *Scope) Visit(node js.Node) {
 	assign, ok := node.(*js.Assign)
 
 	if ok {
-		name := string(assign.Lhs.(js.Namer).GetName())
-		scope.Symbols[name] = scope.typeOf(assign.Rhs)
+		if namer, ok := assign.Lhs.(js.Namer); ok {
+			name := string(namer.GetName())
+			scope.Symbols[name] = scope.typeOf(assign.Rhs)
+		}
 	}
 
 	v, ok := node.(*js.VarDecl)
