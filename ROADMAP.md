@@ -85,14 +85,14 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
 **Goal**: Provide JS implementations of critical Go stdlib packages
 
 ### strings package (runtime: runtime/strings.js)
-- [ ] `strings.Contains(s, substr)` → `s.includes(substr)`
-- [ ] `strings.HasPrefix(s, prefix)` → `s.startsWith(prefix)`
-- [ ] `strings.HasSuffix(s, suffix)` → `s.endsWith(suffix)`
-- [ ] `strings.Split(s, sep)` → `s.split(sep)`
-- [ ] `strings.Join(arr, sep)` → `arr.join(sep)`
-- [ ] `strings.ToUpper/ToLower` → `s.toUpperCase()` / `s.toLowerCase()`
-- [ ] `strings.Trim, TrimSpace` → regex or manual
-- [ ] `strings.Replace` → `s.replaceAll(old, new)`
+- [x] `strings.Contains(s, substr)` → `s.includes(substr)`
+- [x] `strings.HasPrefix(s, prefix)` → `s.startsWith(prefix)`
+- [x] `strings.HasSuffix(s, suffix)` → `s.endsWith(suffix)`
+- [x] `strings.Split(s, sep)` → `s.split(sep)`
+- [x] `strings.Join(arr, sep)` → `arr.join(sep)`
+- [x] `strings.ToUpper/ToLower` → `s.toUpperCase()` / `s.toLowerCase()`
+- [x] `strings.Trim, TrimSpace` → regex or manual
+- [x] `strings.Replace` → `s.replaceAll(old, new)`
 
 ### fmt package (expand link/fmt.js)
 - [x] `fmt.Println` (already exists)
