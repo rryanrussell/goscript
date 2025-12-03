@@ -30,6 +30,8 @@ func TypeExpr(ctx Complainer, e ast.Expr) string {
 		return TypeExpr(ctx, x.Elt) + "[]"
 	case *ast.StructType:
 		return "any"
+	case *ast.SelectorExpr:
+		return TypeExpr(ctx, x.X) + "." + x.Sel.Name
 	}
 
 	if ctx != nil {
@@ -254,15 +256,7 @@ func expr(ctx *Context, w ast.Expr) js.Expr {
 	case *ast.FuncLit:
 		return funlit(ctx, x)
 	case *ast.TypeAssertExpr:
-		asExpr := expr(ctx, x.X)
-		if ctx.Semantics == nil {
-			ctx.Semantics = make(map[js.Node]Semantics)
-		}
-		sem := ctx.Semantics[asExpr]
-		sem.TypeAssertion = TypeExpr(ctx, x.Type)
-
-		ctx.Semantics[asExpr] = sem
-		return asExpr
+		return typeAssert(ctx, x)
 	default:
 		return unknown(ctx, w)
 	}
@@ -489,6 +483,8 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		return ifs(ctx, stmt)
 	case *ast.SwitchStmt:
 		return switches(ctx, stmt)
+	case *ast.TypeSwitchStmt:
+		return typeSwitch(ctx, stmt)
 	case *ast.ForStmt:
 		return fors(ctx, stmt)
 	case *ast.RangeStmt:
@@ -503,10 +499,14 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		val := decl.Specs[0].(*ast.ValueSpec)
 
 		if decl.Tok == token.VAR {
+			rhs := js.Expr(&js.ObjectLit{Type: TypeExpr(ctx, val.Type)})
+			if len(val.Values) > 0 {
+				rhs = expr(ctx, val.Values[0])
+			}
 			return &js.Assign{
 				Define: true,
 				Lhs:    single(ctx, val.Names),
-				Rhs:    &js.ObjectLit{Type: TypeExpr(ctx, val.Type)},
+				Rhs:    rhs,
 			}
 		}
 	}
@@ -525,6 +525,13 @@ func single[T ast.Expr](ctx *Context, el []T) js.Expr {
 }
 
 func assign(ctx *Context, a *ast.AssignStmt) *js.Assign {
+	if len(a.Lhs) == 2 && len(a.Rhs) == 1 {
+		if typeAssertExpr, ok := a.Rhs[0].(*ast.TypeAssertExpr); ok {
+			// v, ok := x.(T)
+			return typeAssertCommaOk(ctx, a.Lhs[0], a.Lhs[1], typeAssertExpr, a.Tok == token.DEFINE)
+		}
+	}
+
 	return &js.Assign{
 		Define: a.Tok == token.DEFINE,
 		Lhs:    single(ctx, a.Lhs),
@@ -569,6 +576,9 @@ func clsdecl(ctx *Context, decl *ast.GenDecl) *js.Class {
 	var cls js.Class
 	t := decl.Specs[0].(*ast.TypeSpec)
 	cls.Name = (*js.Ident)(&t.Name.Name)
+	if ctx.Module.Name != nil {
+		cls.PkgName = string(*ctx.Module.Name)
+	}
 
 	s := t.Type.(*ast.StructType)
 

@@ -196,6 +196,7 @@ func main() {
     Age=null
 
     constructor(name, age) {
+        this.__goType = "main.Person"
         this.Name = name
         this.Age = age
     }
@@ -273,8 +274,15 @@ func main() {
 }
 `,
 			expected: `function main() {
-    let i = {  }
-    let s = i
+    let i = 10
+    let s = (function () {
+        let _v = i
+        if (typeof _v=='number') {
+            return _v
+        }
+
+        throw new Error("interface conversion: interface is not int")
+    })()
 }
 `,
 		},

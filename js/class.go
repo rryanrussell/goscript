@@ -4,8 +4,8 @@ import "strings"
 
 type Class struct {
 	Named
-
-	Fields []*Field
+	PkgName string
+	Fields  []*Field
 }
 
 func (cls *Class) Walk(v Visitor) {
@@ -27,6 +27,16 @@ func (cls *Class) Print(c PrintContext) {
 	ctor := &FuncDecl{Named: Named{Name: IdentP("constructor")}}
 	ctor.Body = &Block{}
 	ctor.Member = true
+
+	// Add __goType
+	typeName := string(*cls.Name)
+	if cls.PkgName != "" {
+		typeName = cls.PkgName + "." + typeName
+	}
+	ctor.Body.Lines = append(ctor.Body.Lines, &Assign{
+		Lhs: &Selector{Sel: IdentP("__goType"), X: IdentP(string(This))},
+		Rhs: &BasicLit{Value: "\"" + typeName + "\""},
+	})
 
 	for _, f := range cls.Fields {
 		WriteAll(c, Newline, Indent, f)
