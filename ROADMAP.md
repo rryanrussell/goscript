@@ -47,10 +47,11 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Approach**: Runtime function `runtime.copy(dst, src)`
   - Or compile-time → `dst.splice(0, src.length, ...src.slice(0, dstCap))`
 
-- [ ] **`make()` builtin** for slices/maps
+- [x] **`make()` builtin** for slices/maps
+  - **Status**: Implemented
   - **Approach**: Runtime function
   - `make([]int, 5)` → `runtime.makeSlice(5, 0)` (returns array of length 5)
-  - `make(map[K]V)` → `runtime.makeMap()` (returns JS Map)
+  - `make(map[K]V)` → `runtime.makeMap()` (returns JS object)
 
 - [x] **Better `append()` support**
   - **Status**: Implemented

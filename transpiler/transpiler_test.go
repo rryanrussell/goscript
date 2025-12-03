@@ -487,6 +487,24 @@ func main() {
 }
 `,
 		},
+		{
+			name: "Make",
+			src: `
+package main
+
+func main() {
+	s := make([]int, 5)
+	m := make(map[string]int)
+	s2 := make([]int, 5, 10)
+}
+`,
+			expected: `function main() {
+    let s = runtime.makeSlice(5)
+    let m = runtime.makeMap()
+    let s2 = runtime.makeSlice(5, 10)
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
