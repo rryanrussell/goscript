@@ -292,6 +292,28 @@ func main() {
 }
 `,
 		},
+		{
+			name: "SliceExpr",
+			src: `
+package main
+
+func main() {
+	arr := []int{1, 2, 3, 4, 5}
+	s1 := arr[1:3]
+	s2 := arr[:2]
+	s3 := arr[2:]
+	s4 := arr[:]
+}
+`,
+			expected: `function main() {
+    let arr = [ 1, 2, 3, 4, 5 ]
+    let s1 = arr.slice(1, 3)
+    let s2 = arr.slice(0, 2)
+    let s3 = arr.slice(2)
+    let s4 = arr.slice()
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
