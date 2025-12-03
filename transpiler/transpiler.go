@@ -163,6 +163,16 @@ func call(ctx *Context, c *ast.CallExpr) js.Expr {
 		}
 	}
 
+	if ok && id.Name == "copy" && len(c.Args) == 2 {
+		return &js.Call{
+			Func: &js.Selector{
+				X:   js.Ident("runtime"),
+				Sel: js.IdentP("copy"),
+			},
+			Args: exprs(ctx, c.Args),
+		}
+	}
+
 	if ok && id.Name == "make" && len(c.Args) >= 1 {
 		// check first argument
 		arg0 := c.Args[0]
