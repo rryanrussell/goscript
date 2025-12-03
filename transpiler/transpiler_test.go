@@ -44,6 +44,7 @@ func TestTranspiler(t *testing.T) {
 		name     string
 		src      string
 		expected string
+		skip     bool
 	}{
 		{
 			name: "IfElse",
@@ -505,10 +506,28 @@ func main() {
 }
 `,
 		},
+		{
+			name: "MakeChan",
+			src: `
+package main
+
+func main() {
+	c := make(chan int)
+}
+`,
+			expected: `function main() {
+    let c = runtime.makeChan()
+}
+`,
+			skip: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.Skip("Skipping test case: " + tt.name)
+			}
 			runTranspilerTest(t, tt.name, tt.src, tt.expected)
 		})
 	}

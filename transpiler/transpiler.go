@@ -18,6 +18,21 @@ func exprs(ctx *Context, in []ast.Expr) []js.Expr {
 	return out
 }
 
+func zeroValue(t ast.Expr) js.Expr {
+	// We can figure out zero value from t.Elt if needed
+	// For now let's default to undefined (or handled in runtime)
+	// If we want zero values:
+	// zero := ZeroValue(t.Elt)
+	// args = append(args, zero)
+
+	// However, runtime.makeSlice(len, cap, zero)
+	// let's pass 0 as default zero value for now, or 0/""/null depending on type?
+	// The roadmap said makeSlice(5, 0)
+
+	// Let's implement basics first
+	return &js.BasicLit{Value: "0"}
+}
+
 func TypeExpr(ctx Complainer, e ast.Expr) string {
 	switch x := e.(type) {
 	case *ast.BasicLit:
@@ -163,17 +178,10 @@ func call(ctx *Context, c *ast.CallExpr) js.Expr {
 			} else if len(c.Args) == 2 {
 				// pass undefined/null for cap
 			}
-			// We can figure out zero value from t.Elt if needed
-			// For now let's default to undefined (or handled in runtime)
-			// If we want zero values:
-			// zero := ZeroValue(t.Elt)
-			// args = append(args, zero)
 
-			// However, runtime.makeSlice(len, cap, zero)
-			// let's pass 0 as default zero value for now, or 0/""/null depending on type?
-			// The roadmap said makeSlice(5, 0)
+			// Add zero value
+			// args = append(args, zeroValue(t.Elt))
 
-			// Let's implement basics first
 			return &js.Call{
 				Func: &js.Selector{
 					X:   js.Ident("runtime"),

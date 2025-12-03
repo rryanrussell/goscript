@@ -38,6 +38,7 @@ func Include(writer io.Writer) {
 	}
 
 	// Include runtime/runtime.js
+	// TODO: Temporary solution
 	data, err = os.ReadFile("runtime/runtime.js")
 	if err == nil {
 		writer.Write([]byte("\n"))

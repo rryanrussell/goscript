@@ -59,6 +59,9 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - `append(arr, a, b, c)` → `[...(arr ?? []), a, b, c]`
   - `append(arr, other...)` → `[...(arr ?? []), ...(other ?? [])]`
 
+- [ ] **Refactor `call` function in `transpiler/transpiler.go`**
+  - **Goal**: Split built-in handling (append, make, len, etc.) into separate functions to improve readability and maintainability.
+
 ### Type System Basics
 - [ ] **Type switches** (requires runtime type info)
   - Currently `switch x.(type)` is not handled
@@ -414,6 +417,7 @@ goscript/
 ### Proposed:
 1. **Unit tests** for transpiler (transpiler_test.go)
    - Test each Go construct → expected JS output
+   - Skipped tests can be used as TODOs for partially supported or planned features.
 
 2. **Integration tests** (tests/)
    - Write Go programs, transpile, run in Node.js
