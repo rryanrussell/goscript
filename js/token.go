@@ -42,6 +42,10 @@ const (
 	Inc      Token      = "++"
 	Dec      Token      = "--"
 	Newline  Token      = "\n"
+	Switch   Token      = "switch"
+	Case     Token      = "case"
+	Default  Token      = "default"
+	Break    Token      = "break"
 )
 
 type IndentType string
