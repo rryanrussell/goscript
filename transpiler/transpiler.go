@@ -568,10 +568,17 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		val := decl.Specs[0].(*ast.ValueSpec)
 
 		if decl.Tok == token.VAR {
+			var rhs js.Expr
+			if len(val.Values) > 0 {
+				rhs = single(ctx, val.Values)
+			} else {
+				// Zero value
+				rhs = &js.ObjectLit{Type: TypeExpr(ctx, val.Type)}
+			}
 			return &js.Assign{
 				Define: true,
 				Lhs:    single(ctx, val.Names),
-				Rhs:    &js.ObjectLit{Type: TypeExpr(ctx, val.Type)},
+				Rhs:    rhs,
 			}
 		}
 	}
@@ -664,12 +671,25 @@ func Decl(ctx *Context, w ast.Decl) {
 		if d.Tok == token.VAR {
 			for _, spec := range d.Specs {
 				value := spec.(*ast.ValueSpec)
-				for _, name := range value.Names {
+				var rhs []js.Expr
+				if len(value.Values) > 0 {
+					rhs = exprs(ctx, value.Values)
+				}
+
+				for i, name := range value.Names {
+					// fmt.Printf("DEBUG: name=%s\n", name.Name)
 					nameIdent := js.Ident(name.Name)
-					ctx.Module.Decls = append(ctx.Module.Decls, &js.VarDecl{Var: &js.Var{
+					vDecl := &js.VarDecl{Var: &js.Var{
 						Named: js.Named{Name: &nameIdent},
 						Type:  TypeExpr(ctx, value.Type),
-					}})
+					}}
+					// TODO: consider using 'var' instead of 'let' for top-level vars if hoisting is needed
+					// But current implementation of VarDecl defaults to Let unless Const is true.
+
+					if i < len(rhs) {
+						vDecl.Value = rhs[i]
+					}
+					ctx.Module.Decls = append(ctx.Module.Decls, vDecl)
 				}
 
 			}

@@ -31,7 +31,7 @@ func (v *VarDecl) Walk(vis Visitor) {
 func (v *VarDecl) Print(c PrintContext) {
 	WriteAll(c,
 		PrintIf(v.Const, Const), PrintIf(!v.Const, Let), Space,
-		v.Var, PrintIf(v.Value, Eq, v.Value), PrintIf(!v.Inline, Newline),
+		v.Var.Name, PrintIf(v.Value != nil, Eq, v.Value), PrintIf(!v.Inline, Newline),
 	)
 }
 

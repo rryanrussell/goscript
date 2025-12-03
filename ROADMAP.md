@@ -363,7 +363,9 @@ goscript/
 
 ## Testing Strategy
 
-### Current: Manual testing only
+### Current: Goja Runtime Integration
+
+We have integrated **Goja** (a pure Go JavaScript runtime) to allow direct testing of transpiled code within the Go test suite.
 
 ### Proposed:
 1. **Unit tests** for transpiler (transpiler_test.go)
@@ -371,8 +373,9 @@ goscript/
    - Skipped tests can be used as TODOs for partially supported or planned features.
 
 2. **Integration tests** (tests/)
-   - Write Go programs, transpile, run in Node.js
-   - Verify output matches expected
+   - **Status**: Active (Goja-based)
+   - We use `tests/runner.go` to transpile Go code and execute it immediately in Goja.
+   - We can inspect variables and return values in the JS runtime to verify correctness.
 
 3. **Browser tests** (tests/browser/)
    - Load transpiled JS in headless browser
