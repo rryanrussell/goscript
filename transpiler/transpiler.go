@@ -423,6 +423,20 @@ func incdec(ctx *Context, o *ast.IncDecStmt) js.Stmt {
 	}
 }
 
+func branch(ctx *Context, b *ast.BranchStmt) js.Stmt {
+	var t js.Token
+	switch b.Tok {
+	case token.BREAK:
+		t = js.Break
+	case token.CONTINUE:
+		t = js.Continue
+	default:
+		ctx.Error(b, fmt.Sprintf("unsupported token %s", b.Tok))
+	}
+
+	return &js.TokenStmt{Token: t}
+}
+
 func statement(ctx *Context, s ast.Stmt) js.Stmt {
 	switch stmt := s.(type) {
 	case *ast.ExprStmt:
@@ -435,6 +449,8 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		return returns(ctx, stmt)
 	case *ast.IncDecStmt:
 		return incdec(ctx, stmt)
+	case *ast.BranchStmt:
+		return branch(ctx, stmt)
 	case *ast.IfStmt:
 		return ifs(ctx, stmt)
 	case *ast.SwitchStmt:

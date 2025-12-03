@@ -46,6 +46,7 @@ const (
 	Case     Token      = "case"
 	Default  Token      = "default"
 	Break    Token      = "break"
+	Continue Token      = "continue"
 )
 
 type IndentType string
