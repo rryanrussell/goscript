@@ -225,6 +225,21 @@ func (f *FuncDecl) Print(ctx *Context) {
 
 ## Type System
 
+**Runtime Type System (Since 2025):**
+
+The system uses a `runtime` namespace (injected or defined globally) to handle type operations.
+
+*   **Struct Metadata:**
+    *   Structs are transpiled to Classes.
+    *   Constructors call `runtime.SetType(this, "pkg.StructName")` to attach type metadata.
+*   **Type Switches:**
+    *   Transpiled to `if-else` chains.
+    *   Checks `typeof x` for primitives.
+    *   Checks `x?.__goType` for structs.
+*   **Type Assertions:**
+    *   Transpiled to IIFEs using `runtime.panic` on failure.
+    *   Comma-ok form returns `[value, boolean]` tuple.
+
 **Go types → JS equivalents:**
 
 | Go Type | JavaScript |
@@ -233,7 +248,7 @@ func (f *FuncDecl) Print(ctx *Context) {
 | `string` | `string` |
 | `bool` | `boolean` |
 | `[]T` | `Array` |
-| `struct` | `class` (with constructor) |
+| `struct` | `class` (with `__goType` metadata) |
 | `map[K]V` | `Object` or `Map` |
 | `func` | `function` |
 | `interface{}` | `any` |
@@ -331,6 +346,7 @@ js.Module
 ```javascript
 class State {
     constructor() {
+        runtime.SetType(this, "app.State");
         this.Count = 0;
     }
 }
@@ -434,8 +450,8 @@ Supporting `fmt`, `io`, `net`, etc. would require:
 1. **Minimal subsets are useful** - Don't need full language for browser UI
 2. **Clean output matters** - Readable JS helps debugging
 3. **Custom AST is powerful** - Full control over transformations
-4. **External bindings work well** - Clear separation of concerns
-5. **WASM is usually better** - But experiments teach you a lot
+4. **WASM is usually better** - But experiments teach you a lot
+5. **Runtime Abstraction** - Keeping runtime logic separate from AST generation simplifies maintenance.
 
 ## References
 

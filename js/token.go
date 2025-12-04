@@ -47,6 +47,11 @@ const (
 	Default  Token      = "default"
 	Break    Token      = "break"
 	Continue Token      = "continue"
+	Or       Token      = "||"
+	And      Token      = "&&"
+	EqEq     Token      = "=="
+	NotEq    Token      = "!="
+	TypeOf   Token      = "typeof "
 )
 
 type IndentType string
