@@ -36,7 +36,7 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Approach**: Compile-time transformation
 
 - [ ] **Labeled statements & goto** (low priority)
-  - **Approach**: Compile-time if simple, runtime labels if complex
+  - **Approach**: Integrated via "State Machine Frame" for backward jumps; simple labels for forward jumps.
 
 ### Missing Built-in Operations
 - [x] **Slice expressions** `arr[1:3]` (transpiler.go line ~200)
@@ -187,42 +187,32 @@ function assertInterface(value, requiredMethods) {
 
 ## Phase 4: Defer & Panic/Recover [Medium]
 
+**New Approach**: Use **Universal Frame Template** to wrap functions detecting these effects.
+
 ### Defer Statement
-- [ ] **Compile-time transformation**
-  - Track defer stack for each function
-  - Generate try/finally blocks
+- [ ] **Frame Selection**
+  - Scan for `defer` keyword
+  - Select "Bracket Frame" (try/finally)
+  - Hoist `__deferred` array in prologue
 
 **Example**:
-```go
-func foo() {
-  defer cleanup()
-  defer log()
-  doWork()
-}
-```
-
-**Transpile to**:
 ```javascript
 function foo() {
-  const __defer = [];
+  const __deferred = [];
   try {
-    __defer.push(() => cleanup());
-    __defer.push(() => log());
-    doWork();
+     __deferred.push(cleanup);
+     // ...
   } finally {
-    while (__defer.length) __defer.pop()();
+     runDefers(__deferred);
   }
 }
 ```
 
 ### Panic/Recover
-- [ ] **Runtime support** (expand existing panic in link/fmt.js)
-  - `panic(err)` → throw new GoPanic(err)
-  - `recover()` → catch GoPanic in defer, return error
-
-- [ ] **Compile-time support**
-  - Wrap function bodies in try/catch for recover
-  - Only if function has defer with recover()
+- [ ] **Frame Selection**
+  - Scan for `recover`
+  - Select "Exception Frame" (try/catch) or merge with Bracket Frame
+  - Catch block handles `panic` value, sets it for `recover()` to find
 
 
 
@@ -230,67 +220,28 @@ function foo() {
 
 ## Phase 5: Goroutines & Channels [Large]
 
-**Goal**: Map goroutines to async/await, channels to async queues
+**New Approach**: Treat `go`, channel ops, and `select` as **Yield Effects** triggering **Coroutine Frames**.
 
-### Goroutines → Async Functions
-- [ ] **Transform `go` statements**
-  - `go foo()` → `runtime.go(() => foo())`
-  - Runtime spawns Promise, tracks in scheduler
+### Goroutines & Channels
+- [ ] **Effect Analysis**
+  - Scan for `go`, `ch <-`, `<-ch`, `select`
+  - Mark function as "Yielding" (requires generator/async)
 
-- [ ] **Transform goroutine functions to async**
-  - Functions called with `go` become async
-  - Propagate async up call chain as needed
-
-- [ ] **Main function becomes async**
-  - Entry point waits for all goroutines
+- [ ] **Frame Selection**
+  - Wrap body in "Coroutine Frame" (async generator or state machine)
+  - All channel ops become `yield*` calls to runtime
 
 **Example**:
-```go
-func main() {
-  go worker()
-  time.Sleep(1 * time.Second)
-}
-
-func worker() {
-  // do work
-}
-```
-
-**Transpile to**:
 ```javascript
-async function main() {
-  runtime.go(worker); // Start worker in background
-  await runtime.sleep(1000);
-  await runtime.waitAll(); // Wait for goroutines
-}
-
-async function worker() {
-  // do work
+function* worker() {
+  yield* runtime.send(ch, 1);
 }
 ```
-
-### Channels
-- [ ] **Channel type** (runtime: runtime/chan.js)
-  - `ch := make(chan int)` → `runtime.makeChan()`
-  - Implemented as async queue (Promise-based)
-
-- [ ] **Channel send** (compile to runtime call)
-  - `ch <- value` → `await runtime.send(ch, value)`
-
-- [ ] **Channel receive** (compile to runtime call)
-  - `v := <-ch` → `const v = await runtime.recv(ch)`
-  - `v, ok := <-ch` → `const [v, ok] = await runtime.recvOk(ch)`
-
-- [ ] **Buffered channels**
-  - `make(chan int, 10)` → queue with capacity
-
-- [ ] **Close channels**
-  - `close(ch)` → mark channel closed, pending receives get default value
 
 ### Select Statement
-- [ ] **Transform select to Promise.race**
-  - Each case becomes a Promise
-  - Select waits for first to resolve
+- [ ] **Runtime Implementation**
+  - `runtime.select` manages the race logic
+  - Transpiles to `yield* runtime.select([...cases])`
 
 **Example**:
 ```go
