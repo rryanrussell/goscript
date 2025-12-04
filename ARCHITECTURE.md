@@ -223,6 +223,93 @@ func (f *FuncDecl) Print(ctx *Context) {
 - Whitespace control
 - No source maps (limitation)
 
+## Control Flow Architecture
+
+The transpiler uses a unified theory to model Go's control flow features (defer, panic, goto, goroutines) by treating them as orthogonal **effects** that determine the function's emission **frame**.
+
+### Core Insight
+
+Every Go function can be classified by which **effects** it uses. Effects compose in limited ways, giving us a small set of **frames** (emission templates). This turns the combinatorial "composite idiom" problem into a simple selection.
+
+### Effect Analysis
+
+We scan each function for specific features:
+
+```
+Scan function for:
+  - defer         → needs finally
+  - panic/recover → needs try/catch
+  - channels/go   → needs generator (yield)
+  - goto          → needs state machine
+  - named returns → needs hoisted vars + epilogue
+```
+
+### Frame Selection
+
+Based on the detected effects, we select the appropriate frame wrapper:
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           Has Yield?                │
+                    └──────────────┬──────────────────────┘
+                           yes/    \no
+                             /      \
+                   ┌────────┴─┐    ┌─┴────────┐
+                   │ Coroutine│    │  Sync    │
+                   │  Frames  │    │  Frames  │
+                   └────┬─────┘    └────┬─────┘
+                        │               │
+            ┌───────────┴───────────────┴───────────┐
+            │         Has Defer + Panic?            │
+            └───────────────────┬───────────────────┘
+                    both/    only one/    \neither
+                       /          |        \
+                   Full      Bracket    Pure
+                            or Exception
+```
+
+### The Universal Frame Template
+
+The transpiler uses a universal template where slots are conditionally filled:
+
+```javascript
+function«*if yield» name(params) {
+  // === PROLOGUE (hoisted by effects) ===
+  «let result;»              // if named returns
+  «const __deferred = [];»   // if defer
+  «let __panicValue;»        // if recover
+  «let __state = "start";»   // if goto
+
+  // === BODY (wrapped by frame) ===
+  «try {»
+    «__dispatch: while (true) switch (__state) {»  // if state machine
+      // actual code here, with:
+      // - goto → __state = "target"; continue __dispatch;
+      // - defer → __deferred.push(fn)
+      // - chan ops → yield* __runtime.send/recv()
+    «}»
+  «} catch (__e) { ... }»    // if panic/recover
+  «} finally { runDefers() }» // if defer
+
+  // === EPILOGUE ===
+  «return result;»           // if named returns
+}
+```
+
+### Control Flow (Orthogonal)
+
+Features are orthogonal—they wrap the control flow rather than interleaving with it.
+
+| Pattern | Detection | Emission |
+|---------|-----------|----------|
+| Structured | No goto | Direct JS control flow |
+| Forward goto | Goto targets only come after | Labeled blocks + break |
+| Irreducible | Backward jumps | State machine (while-switch) |
+
+### Why This Works
+
+Böhm-Jacopini proved any control flow reduces to sequence/selection/iteration. The state machine is the constructive proof. Effects (defer, panic, yield) are orthogonal—they wrap the control flow rather than interleaving with it. So you get `frames × control_flow_kinds` combinations, not `2^n` for n individual features.
+
 ## Type System
 
 **Go types → JS equivalents:**

@@ -116,7 +116,11 @@ The transpiler recognizes these as external symbols and generates appropriate JS
 └─────────────┘
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for deep dive.
+### Universal Control Flow
+
+The transpiler uses a unified **Effects & Frames** theory to handle advanced control flow (defer, panic, goto, goroutines). By scanning functions for effects, it selects the appropriate "Frame" (wrapper) to manage state, errors, or async operations without ad-hoc hacks.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the deep dive on this system.
 
 ## Example: WebGL Application
 
