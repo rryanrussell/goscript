@@ -63,12 +63,12 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
   - **Goal**: Split built-in handling (append, make, len, etc.) into separate functions to improve readability and maintainability.
 
 ### Type System Basics
-- [ ] **Type switches** (requires runtime type info)
+- [x] **Type switches** (requires runtime type info)
   - Currently `switch x.(type)` is not handled
   - **Approach**: Runtime - attach `__goType` property to values
   - Compile switch to if/else checking `__goType`
 
-- [ ] **Better type assertions** (currently tracked but not enforced)
+- [x] **Better type assertions** (currently tracked but not enforced)
   - **Approach**: Runtime - check `__goType`, panic on mismatch
 
 - [ ] **Map operations** (currently no special handling)
@@ -144,7 +144,7 @@ Expand goscript from a minimal transpiler to a more complete Go→JavaScript com
 **Goal**: Enable polymorphism via interface types
 
 ### Runtime Type Information
-- [ ] **Attach type metadata** to all values
+- [x] **Attach type metadata** to all values
   - Structs get `__goType: "pkg.StructName"`
   - Functions get `__goType: "func(...)"`
 
