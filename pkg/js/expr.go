@@ -59,3 +59,17 @@ func (e Index) Print(c PrintContext) {
 func (Ident) exprNode()    {}
 func (Index) exprNode()    {}
 func (Selector) exprNode() {}
+
+type AwaitExpr struct {
+	X Expr
+}
+
+func (e *AwaitExpr) Print(c PrintContext) {
+	WriteAll(c, Token("await"), Space, e.X)
+}
+
+func (e *AwaitExpr) Walk(v Visitor) {
+	v.Visit(e.X)
+}
+
+func (AwaitExpr) exprNode() {}

@@ -13,10 +13,12 @@ This is a *finished experiment* demonstrating a minimal transpiler design. It's 
 - ✅ **Clean JavaScript output** - Human-readable, minimal runtime
 - ✅ **Direct DOM bindings** - WebGL, WebSocket via `.extern.go` files
 - ✅ **No runtime overhead** - Unlike full Go compilers
+- ✅ **Goroutines, channels (via async/await)**
+- ✅ **Defer, panic, recover**
 
 **Not supported:**
-- ❌ Goroutines, channels, interfaces
-- ❌ Full Go standard library
+- ❌ Interfaces
+- ❌ Full Go standard library (partial support for fmt, strings)
 - ❌ Reflection, complex generics
 - ❌ Production support or maintenance guarantees
 
@@ -128,7 +130,11 @@ go run cmd/dommer/main.go -input lib/lib.dom.d.ts -output app/dom.extern.go
 └─────────────┘
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for deep dive.
+### Universal Control Flow
+
+The transpiler uses a unified **Effects & Frames** theory to handle advanced control flow (defer, panic, goto, goroutines). By scanning functions for effects, it selects the appropriate "Frame" (wrapper) to manage state, errors, or async operations without ad-hoc hacks.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the deep dive on this system.
 
 ## Example: WebGL Application
 
@@ -182,10 +188,8 @@ go run github.com/rryanrussell/goscript ./myapp > output.js
 ## Limitations
 
 **Language Features:**
-- No goroutines or channels
 - No interfaces or reflection
-- No defer/panic/recover
-- Limited standard library (no fmt, io, etc.)
+- Limited standard library (fmt, strings supported; others missing)
 - Basic type system only
 
 **Output:**

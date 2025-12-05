@@ -40,15 +40,18 @@ func (i Instance) Print(c js.PrintContext) {
 			Args:  args,
 		}.Print(c)
 	} else {
-		var args []js.Expr
+		var props []*js.Prop
 
 		for _, arg := range i.Args {
-			args = append(args, js.GuestExpr{Node: arg})
+			props = append(props, &js.Prop{
+				Key:   js.IdentP(arg.Member),
+				Value: arg.Value,
+			})
 		}
 
 		js.ObjectLit{
-			Type: i.Type,
-			Elts: args,
+			Type:  i.Type,
+			Props: props,
 		}.Print(c)
 	}
 }

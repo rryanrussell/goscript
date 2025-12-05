@@ -1,17 +1,33 @@
 package js
 
+type Prop struct {
+	Key   Expr
+	Value Expr
+}
+
+func (p *Prop) Print(c PrintContext) {
+	WriteAll(c, p.Key, Colon, Space, p.Value)
+}
+
+func (p *Prop) Walk(v Visitor) {
+	v.Visit(p.Key)
+	v.Visit(p.Value)
+}
+
+func (Prop) exprNode() {}
+
 type ObjectLit struct {
-	Type string
-	Elts []Expr
+	Type  string
+	Props []*Prop
 }
 
 func (e ObjectLit) Walk(v Visitor) {
-	Stroll(v, e.Elts)
+	Stroll(v, e.Props)
 }
 
 func (e ObjectLit) Print(c PrintContext) {
 	WriteAll(c, Lbrc, Space)
-	Join(c, e.Elts, Comma, Space)
+	Join(c, e.Props, Comma, Space)
 	WriteAll(c, Space, Rbrc)
 }
 

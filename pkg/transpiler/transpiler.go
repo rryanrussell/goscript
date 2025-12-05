@@ -18,6 +18,21 @@ func exprs(ctx *Context, in []ast.Expr) []js.Expr {
 	return out
 }
 
+func zeroValue(t ast.Expr) js.Expr {
+	// We can figure out zero value from t.Elt if needed
+	// For now let's default to undefined (or handled in runtime)
+	// If we want zero values:
+	// zero := ZeroValue(t.Elt)
+	// args = append(args, zero)
+
+	// However, runtime.makeSlice(len, cap, zero)
+	// let's pass 0 as default zero value for now, or 0/""/null depending on type?
+	// The roadmap said makeSlice(5, 0)
+
+	// Let's implement basics first
+	return &js.BasicLit{Value: "0"}
+}
+
 func TypeExpr(ctx Complainer, e ast.Expr) string {
 	switch x := e.(type) {
 	case *ast.BasicLit:
@@ -26,6 +41,8 @@ func TypeExpr(ctx Complainer, e ast.Expr) string {
 		return x.Name
 	case *ast.StarExpr:
 		return TypeExpr(ctx, x.X)
+	case *ast.SelectorExpr:
+		return TypeExpr(ctx, x.X) + "." + x.Sel.Name
 	case *ast.ArrayType:
 		return TypeExpr(ctx, x.Elt) + "[]"
 	case *ast.StructType:
@@ -59,8 +76,21 @@ func ident(ctx *Context, i *ast.Ident) *js.Ident {
 }
 
 func selector(ctx *Context, s *ast.SelectorExpr) *js.Selector {
+	x := expr(ctx, s.X)
+
+	// Check if X is a package name that needs mapping to runtime
+	if id, ok := s.X.(*ast.Ident); ok {
+		switch id.Name {
+		case "time", "fmt", "strings", "errors", "reflect", "strconv", "math", "sort", "sync":
+			x = &js.Selector{
+				X:   js.IdentP("runtime"),
+				Sel: js.IdentP(id.Name),
+			}
+		}
+	}
+
 	return &js.Selector{
-		X:   expr(ctx, s.X),
+		X:   x,
 		Sel: ident(ctx, s.Sel),
 	}
 }
@@ -72,43 +102,102 @@ func index(ctx *Context, s *ast.IndexExpr) *js.Index {
 	}
 }
 
-func call(ctx *Context, c *ast.CallExpr) js.Expr {
-	id, ok := c.Fun.(*ast.Ident)
-	if ok && id.Name == "len" && len(c.Args) == 1 {
-		return &js.Parens{
-			X: &js.Binary{
-				X: &js.Selector{
-					X:             expr(ctx, c.Args[0]),
-					Sel:           js.IdentP("length"),
-					OptionalChain: true,
-				},
-				Op: js.HuhHuh,
-				Y:  &js.BasicLit{Value: "0"},
-			},
-		}
+func sliceExpr(ctx *Context, s *ast.SliceExpr) js.Expr {
+	var args []js.Expr
+
+	if s.Low != nil {
+		args = append(args, expr(ctx, s.Low))
+	} else if s.High != nil {
+		args = append(args, &js.BasicLit{Value: "0"})
 	}
 
-	if ok && id.Name == "append" && len(c.Args) == 2 {
-		return &js.ArrayLit{
-			Elts: []js.Expr{
-				&js.Spread{
-					X: &js.Parens{
-						X: &js.Binary{
-							X:  expr(ctx, c.Args[0]),
-							Op: js.HuhHuh,
-							Y:  &js.ArrayLit{},
-						},
-					},
-				},
-				expr(ctx, c.Args[1]),
-			},
-		}
+	if s.High != nil {
+		args = append(args, expr(ctx, s.High))
 	}
 
 	return &js.Call{
+		Func: &js.Selector{
+			X:   expr(ctx, s.X),
+			Sel: js.IdentP("slice"),
+		},
+		Args: args,
+	}
+}
+
+func call(ctx *Context, c *ast.CallExpr) js.Expr {
+	id, ok := c.Fun.(*ast.Ident)
+	if ok {
+		switch id.Name {
+		case "len":
+			if len(c.Args) == 1 {
+				return handleLen(ctx, c)
+			}
+		case "append":
+			if len(c.Args) >= 2 {
+				return handleAppend(ctx, c)
+			}
+		case "copy":
+			if len(c.Args) == 2 {
+				return handleCopy(ctx, c)
+			}
+		case "make":
+			if len(c.Args) >= 1 {
+				return handleMake(ctx, c)
+			}
+		case "panic":
+			if len(c.Args) == 1 {
+				return handlePanic(ctx, c)
+			}
+		case "recover":
+			if len(c.Args) == 0 {
+				return handleRecover(ctx, c)
+			}
+		}
+	}
+
+	// Handle package calls
+	if sel, ok := c.Fun.(*ast.SelectorExpr); ok {
+		if id, ok := sel.X.(*ast.Ident); ok {
+			if id.Name == "fmt" {
+				if res := handleFmt(ctx, c, sel.Sel.Name); res != nil {
+					return res
+				}
+			} else if id.Name == "strings" {
+				return handleStrings(ctx, c, sel.Sel.Name)
+			} else if id.Name == "reflect" {
+				return handleReflect(ctx, c, sel.Sel.Name)
+			} else if id.Name == "errors" {
+				return handleErrors(ctx, c, sel.Sel.Name)
+			} else if id.Name == "strconv" {
+				return handleStrconv(ctx, c, sel.Sel.Name)
+			} else if id.Name == "math" {
+				return handleMath(ctx, c, sel.Sel.Name)
+			} else if id.Name == "time" {
+				return handleTime(ctx, c, sel.Sel.Name)
+			} else if id.Name == "sort" {
+				return handleSort(ctx, c, sel.Sel.Name)
+			}
+		}
+	}
+
+	// Handle method calls
+	callExpr := &js.Call{
 		Func: expr(ctx, c.Fun),
 		Args: exprs(ctx, c.Args),
 	}
+
+	return callWithSuspend(ctx, c, callExpr)
+}
+
+func callWithSuspend(ctx *Context, c *ast.CallExpr, callExpr *js.Call) js.Expr {
+	if sel, ok := c.Fun.(*ast.SelectorExpr); ok {
+		switch sel.Sel.Name {
+		case "Lock", "Wait", "Do":
+			// Heuristic: these are likely sync methods that need await
+			return &js.AwaitExpr{X: callExpr}
+		}
+	}
+	return callExpr
 }
 
 func composite(ctx *Context, c *ast.CompositeLit) js.Expr {
@@ -198,12 +287,11 @@ func expr(ctx *Context, w ast.Expr) js.Expr {
 			return asExpr
 		}
 
-		return &js.Unary{
-			X:  expr(ctx, x.X),
-			Op: op(ctx, x.Op),
-		}
+		return unaryExpr(ctx, x)
 	case *ast.IndexExpr:
 		return index(ctx, x)
+	case *ast.SliceExpr:
+		return sliceExpr(ctx, x)
 	case *ast.CompositeLit:
 		return composite(ctx, x)
 	case *ast.BinaryExpr:
@@ -211,15 +299,7 @@ func expr(ctx *Context, w ast.Expr) js.Expr {
 	case *ast.FuncLit:
 		return funlit(ctx, x)
 	case *ast.TypeAssertExpr:
-		asExpr := expr(ctx, x.X)
-		if ctx.Semantics == nil {
-			ctx.Semantics = make(map[js.Node]Semantics)
-		}
-		sem := ctx.Semantics[asExpr]
-		sem.TypeAssertion = TypeExpr(ctx, x.Type)
-
-		ctx.Semantics[asExpr] = sem
-		return asExpr
+		return typeAssert(ctx, x)
 	default:
 		return unknown(ctx, w)
 	}
@@ -233,11 +313,76 @@ func block(ctx *Context, b *ast.BlockStmt) *js.Block {
 	return block
 }
 
-func ifs(ctx *Context, i *ast.IfStmt) *js.IfStmt {
-	return &js.IfStmt{
+func ifs(ctx *Context, i *ast.IfStmt) js.Stmt {
+	var els js.Stmt
+	if i.Else != nil {
+		els = statement(ctx, i.Else)
+	}
+
+	ifStmt := &js.IfStmt{
 		Cond: expr(ctx, i.Cond),
 		Body: block(ctx, i.Body),
+		Else: els,
 	}
+
+	if i.Init != nil {
+		block := &js.Block{}
+		block.Lines = append(block.Lines, statement(ctx, i.Init))
+		block.Lines = append(block.Lines, ifStmt)
+		return block
+	}
+
+	return ifStmt
+}
+
+func switches(ctx *Context, s *ast.SwitchStmt) js.Stmt {
+	// Handling Switch
+	sw := &js.SwitchStmt{}
+	if s.Tag != nil {
+		sw.Tag = expr(ctx, s.Tag)
+	}
+
+	sw.Body = &js.CaseBlock{}
+
+	for _, stmt := range s.Body.List {
+		cc, ok := stmt.(*ast.CaseClause)
+		if !ok {
+			continue
+		}
+
+		jsCc := &js.CaseClause{}
+		jsCc.List = exprs(ctx, cc.List)
+
+		// Handle Body
+		hasFallthrough := false
+		for i, st := range cc.Body {
+			// Check for fallthrough (must be last statement)
+			if branch, ok := st.(*ast.BranchStmt); ok && branch.Tok == token.FALLTHROUGH {
+				if i == len(cc.Body)-1 {
+					hasFallthrough = true
+					// Don't emit fallthrough statement in JS
+					continue
+				}
+			}
+			jsCc.Body = append(jsCc.Body, statement(ctx, st))
+		}
+
+		// Add break if no fallthrough
+		if !hasFallthrough {
+			jsCc.Body = append(jsCc.Body, &js.TokenStmt{Token: js.Break})
+		}
+
+		sw.Body.List = append(sw.Body.List, jsCc)
+	}
+
+	if s.Init != nil {
+		block := &js.Block{}
+		block.Lines = append(block.Lines, statement(ctx, s.Init))
+		block.Lines = append(block.Lines, sw)
+		return block
+	}
+
+	return sw
 }
 
 func fors(ctx *Context, f *ast.ForStmt) js.Stmt {
@@ -274,7 +419,22 @@ func ranges(ctx *Context, r *ast.RangeStmt) js.Stmt {
 
 	switch {
 	case key != "" && value != "":
-		return &js.ExprStmt{X: unknown(ctx, r)}
+		loop.Iterable = &js.Call{
+			Func: &js.Selector{
+				X:   expr(ctx, r.X),
+				Sel: js.IdentP("entries"),
+			},
+		}
+		loop.Key = &js.VarDecl{
+			Var:    &js.Var{Named: js.NewNamed(key)},
+			Const:  true,
+			Inline: true,
+		}
+		loop.Value = &js.VarDecl{
+			Var:    &js.Var{Named: js.NewNamed(value)},
+			Const:  true,
+			Inline: true,
+		}
 	case key == "" && value == "":
 		return &js.ExprStmt{X: unknown(ctx, r)}
 	case key == "":
@@ -334,6 +494,20 @@ func incdec(ctx *Context, o *ast.IncDecStmt) js.Stmt {
 	}
 }
 
+func branch(ctx *Context, b *ast.BranchStmt) js.Stmt {
+	var t js.Token
+	switch b.Tok {
+	case token.BREAK:
+		t = js.Break
+	case token.CONTINUE:
+		t = js.Continue
+	default:
+		ctx.Error(b, fmt.Sprintf("unsupported token %s", b.Tok))
+	}
+
+	return &js.TokenStmt{Token: t}
+}
+
 func statement(ctx *Context, s ast.Stmt) js.Stmt {
 	switch stmt := s.(type) {
 	case *ast.ExprStmt:
@@ -346,12 +520,20 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		return returns(ctx, stmt)
 	case *ast.IncDecStmt:
 		return incdec(ctx, stmt)
+	case *ast.BranchStmt:
+		return branch(ctx, stmt)
 	case *ast.IfStmt:
 		return ifs(ctx, stmt)
+	case *ast.SwitchStmt:
+		return switches(ctx, stmt)
+	case *ast.TypeSwitchStmt:
+		return typeSwitch(ctx, stmt)
 	case *ast.ForStmt:
 		return fors(ctx, stmt)
 	case *ast.RangeStmt:
 		return ranges(ctx, stmt)
+	case *ast.BlockStmt:
+		return block(ctx, stmt)
 	case *ast.DeclStmt:
 		decl := stmt.Decl.(*ast.GenDecl)
 		if len(decl.Specs) != 1 {
@@ -360,12 +542,39 @@ func statement(ctx *Context, s ast.Stmt) js.Stmt {
 		val := decl.Specs[0].(*ast.ValueSpec)
 
 		if decl.Tok == token.VAR {
+			typeName := TypeExpr(ctx, val.Type)
+			var rhs js.Expr
+			if typeName == "sync.Mutex" || typeName == "sync.WaitGroup" || typeName == "sync.Once" {
+				rhs = &js.New{
+					Class: &js.Selector{
+						X: &js.Selector{
+							X:   js.IdentP("runtime"),
+							Sel: js.IdentP("sync"),
+						},
+						Sel: js.IdentP(typeName[5:]), // Remove "sync." prefix
+					},
+				}
+			} else {
+				rhs = js.Expr(&js.ObjectLit{Type: typeName})
+			}
+
+			if len(val.Values) > 0 {
+				rhs = expr(ctx, val.Values[0])
+			}
 			return &js.Assign{
 				Define: true,
 				Lhs:    single(ctx, val.Names),
-				Rhs:    &js.ObjectLit{Type: TypeExpr(ctx, val.Type)},
+				Rhs:    rhs,
 			}
 		}
+	case *ast.DeferStmt:
+		return deferStmt(ctx, stmt)
+	case *ast.GoStmt:
+		return goStmt(ctx, stmt)
+	case *ast.SendStmt:
+		return sendStmt(ctx, stmt)
+	case *ast.SelectStmt:
+		return selectStmt(ctx, stmt)
 	}
 
 	return &js.ExprStmt{
@@ -382,6 +591,33 @@ func single[T ast.Expr](ctx *Context, el []T) js.Expr {
 }
 
 func assign(ctx *Context, a *ast.AssignStmt) *js.Assign {
+	if len(a.Lhs) == 2 && len(a.Rhs) == 1 {
+		if typeAssertExpr, ok := a.Rhs[0].(*ast.TypeAssertExpr); ok {
+			// v, ok := x.(T)
+			return typeAssertCommaOk(ctx, a.Lhs[0], a.Lhs[1], typeAssertExpr, a.Tok == token.DEFINE)
+		}
+	}
+
+	if len(a.Lhs) > 1 {
+		if len(a.Rhs) == 1 {
+			// Destructuring: a, b := foo()
+			return &js.Assign{
+				Define: a.Tok == token.DEFINE,
+				Lhs:    &js.ArrayLit{Elts: exprs(ctx, a.Lhs)},
+				Rhs:    expr(ctx, a.Rhs[0]),
+			}
+		}
+
+		if len(a.Lhs) == len(a.Rhs) {
+			// Parallel assignment: a, b = 1, 2
+			return &js.Assign{
+				Define: a.Tok == token.DEFINE,
+				Lhs:    &js.ArrayLit{Elts: exprs(ctx, a.Lhs)},
+				Rhs:    &js.ArrayLit{Elts: exprs(ctx, a.Rhs)},
+			}
+		}
+	}
+
 	return &js.Assign{
 		Define: a.Tok == token.DEFINE,
 		Lhs:    single(ctx, a.Lhs),
@@ -409,6 +645,15 @@ func fun(ctx *Context, t *ast.FuncType, body *ast.BlockStmt, name string) *js.Fu
 
 	f.Body = block(ctx, body)
 
+	// Check for effects (defer, recover) and wrap body if needed
+	hasDefer, hasRecover := hasEffects(body)
+	f.Body = frameBody(ctx, f.Body, hasDefer, hasRecover)
+
+	// Check for async operations
+	if hasAsync(body) {
+		f.Async = true
+	}
+
 	return &f
 }
 
@@ -426,8 +671,14 @@ func clsdecl(ctx *Context, decl *ast.GenDecl) *js.Class {
 	var cls js.Class
 	t := decl.Specs[0].(*ast.TypeSpec)
 	cls.Name = (*js.Ident)(&t.Name.Name)
+	if ctx.Module.Name != nil {
+		cls.PkgName = string(*ctx.Module.Name)
+	}
 
-	s := t.Type.(*ast.StructType)
+	s, ok := t.Type.(*ast.StructType)
+	if !ok {
+		return nil
+	}
 
 	for _, f := range s.Fields.List {
 		cls.Fields = append(cls.Fields, &js.Field{
@@ -442,14 +693,54 @@ func clsdecl(ctx *Context, decl *ast.GenDecl) *js.Class {
 func Decl(ctx *Context, w ast.Decl) {
 	switch d := w.(type) {
 	case *ast.FuncDecl:
-		ctx.Module.Decls = append(ctx.Module.Decls, fundcl(ctx, d))
+		f := fundcl(ctx, d)
+		if d.Recv != nil {
+			recv := d.Recv.List[0]
+			typeExpr := recv.Type
+			typeName := ""
+			if star, ok := typeExpr.(*ast.StarExpr); ok {
+				if ident, ok := star.X.(*ast.Ident); ok {
+					typeName = ident.Name
+				}
+			} else if ident, ok := typeExpr.(*ast.Ident); ok {
+				typeName = ident.Name
+			}
+
+			if typeName != "" {
+				if len(recv.Names) > 0 && recv.Names[0].Name != "_" {
+					recvName := recv.Names[0].Name
+					assign := &js.Assign{
+						Define: true,
+						Lhs:    js.IdentP(recvName),
+						Rhs:    js.IdentP("this"),
+					}
+					f.Body.Lines = append([]js.Stmt{assign}, f.Body.Lines...)
+				}
+
+				assign := &js.Assign{
+					Lhs: &js.Selector{
+						X: &js.Selector{
+							X:   js.IdentP(typeName),
+							Sel: js.IdentP("prototype"),
+						},
+						Sel: f.Name,
+					},
+					Rhs: f,
+				}
+				ctx.Module.Decls = append(ctx.Module.Decls, assign)
+				return
+			}
+		}
+		ctx.Module.Decls = append(ctx.Module.Decls, f)
 	case *ast.GenDecl:
 		if d.Tok == token.IMPORT {
 			return
 		}
 
 		if d.Tok == token.TYPE {
-			ctx.Module.Decls = append(ctx.Module.Decls, clsdecl(ctx, d))
+			if cls := clsdecl(ctx, d); cls != nil {
+				ctx.Module.Decls = append(ctx.Module.Decls, cls)
+			}
 			return
 		}
 

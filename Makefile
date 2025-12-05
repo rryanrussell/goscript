@@ -9,7 +9,7 @@ install:
 	go install ./cmd/dommer
 
 test:
-	go test ./...
+	go test ./pkg/... ./cmd/...
 
 example: build
 	./bin/goscript examples/webgl-app

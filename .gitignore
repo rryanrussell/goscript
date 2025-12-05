@@ -38,3 +38,6 @@ Thumbs.db
 # Project specific
 examples/**/output.js
 *.parsecache
+
+# bun
+node_modules/

@@ -5,10 +5,12 @@ type FuncDecl struct {
 	Body   *Block
 	Args   []*Var
 	Member bool
+	Async  bool
 }
 
 func (f *FuncDecl) Print(c PrintContext) {
 	WriteAll(c,
+		PrintIf(f.Async, Token("async"), Space),
 		PrintIf(
 			!f.Member,
 			Function,
@@ -32,3 +34,25 @@ func (f *FuncDecl) Walk(v Visitor) {
 
 func (FuncDecl) exprNode() {}
 func (FuncDecl) declNode() {}
+
+type ArrowFunc struct {
+	Body  *Block
+	Args  []*Var
+	Async bool
+}
+
+func (f *ArrowFunc) Print(c PrintContext) {
+	WriteAll(c,
+		PrintIf(f.Async, Token("async"), Space),
+		Lparen,
+	)
+	Join(c, f.Args, Comma, Space)
+	WriteAll(c, Rparen, Space, Token("=>"), Space, f.Body)
+}
+
+func (f *ArrowFunc) Walk(v Visitor) {
+	Stroll(v, f.Args)
+	v.Visit(f.Body)
+}
+
+func (ArrowFunc) exprNode() {}

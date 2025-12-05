@@ -6,6 +6,7 @@ type Module struct {
 	Enums   []*Enum
 	Defs    []*Def
 	Vars    []*Var
+	Funcs   []*Method
 }
 
 func (m *Module) Walk(v Visitor) {
@@ -14,6 +15,7 @@ func (m *Module) Walk(v Visitor) {
 	Stroll(v, m.Enums)
 	Stroll(v, m.Defs)
 	Stroll(v, m.Vars)
+	Stroll(v, m.Funcs)
 }
 
 func (m *Module) Print(c PrintContext) {
@@ -35,4 +37,9 @@ func (m *Module) Print(c PrintContext) {
 	Newline.Print(c)
 
 	Join(c, m.Vars, Newline)
+
+	Newline.Print(c)
+	Newline.Print(c)
+
+	Join(c, m.Funcs, Newline)
 }

@@ -6,7 +6,11 @@ type Call struct {
 }
 
 func (e Call) Print(c PrintContext) {
-	WriteAll(c, e.Func, Lparen)
+	if _, ok := e.Func.(*FuncDecl); ok {
+		WriteAll(c, Lparen, e.Func, Rparen, Lparen)
+	} else {
+		WriteAll(c, e.Func, Lparen)
+	}
 	Join(c, e.Args, Comma, Space)
 	Tok(c, Rparen)
 }

@@ -85,7 +85,7 @@ func Parse(dataBytes []byte, debugMax int) []Result {
 	endProc := time.Now()
 
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].Duration > results[j].Duration
+		return results[i].LineStart < results[j].LineStart
 	})
 
 	var features int

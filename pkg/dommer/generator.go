@@ -32,6 +32,22 @@ func (t *TypeRef) Walk(v g.Visitor) {
 }
 
 func (m *TypeRef) Print(c g.PrintContext) {
+	if m.binding != nil {
+		switch t := m.binding.(type) {
+		case *g.Struct:
+			t.Ident.Print(c)
+			return
+		case *g.Enum:
+			t.Ident.Print(c)
+			return
+		case *g.Def:
+			t.Ident.Print(c)
+			return
+		case *BuiltInType:
+			t.Symbol.Print(c)
+			return
+		}
+	}
 	m.ident.Print(c)
 }
 
@@ -52,6 +68,21 @@ var JSNumber = ast.Number.Value
 var JSBoolean = ast.Boolean.Value
 var JSFloat32List = "Float32List"
 var JSInt32List = "Int32List"
+
+var goKeywords = map[string]bool{
+	"break": true, "default": true, "func": true, "interface": true, "select": true,
+	"case": true, "defer": true, "go": true, "map": true, "struct": true,
+	"chan": true, "else": true, "goto": true, "package": true, "switch": true,
+	"const": true, "fallthrough": true, "if": true, "range": true, "type": true,
+	"continue": true, "for": true, "import": true, "return": true, "var": true,
+}
+
+func escapeKeyword(name string) string {
+	if goKeywords[name] {
+		return name + "_"
+	}
+	return name
+}
 
 var Global *g.Ident = nil
 
@@ -79,6 +110,16 @@ func (c *GenerateContext) BindType(ns *g.Ident, name string, t g.Type) g.Type {
 	return t
 }
 
+func (c *GenerateContext) BindDefinition(ns *g.Ident, name string, t g.Type) {
+	key := Name{ns, name}
+	if existing, ok := c.types[key]; ok {
+		if ref, ok := existing.(*TypeRef); ok {
+			ref.binding = t
+		}
+	}
+	c.types[key] = t
+}
+
 func (c *GenerateContext) Define(ns *g.Ident, name string, conv g.NameConvention, fallbackSuffixes ...string) *g.Ident {
 	currentName := name
 	alias := ""
@@ -91,9 +132,16 @@ func (c *GenerateContext) Define(ns *g.Ident, name string, conv g.NameConvention
 		_, exists := c.names[key]
 
 		if !exists {
+			if name == "Event" {
+				fmt.Printf("Define Event: %s -> %s (new)\n", name, currentName)
+			}
 			binding := &Binding{&g.Ident{Name: currentName, NameConvention: conv, SourceAlias: alias}, true}
 			c.names[key] = binding
 			return binding.ident
+		}
+
+		if name == "Event" {
+			fmt.Printf("Define Event: %s -> %s (exists)\n", name, currentName)
 		}
 
 		if suffix >= len(fallbackSuffixes) {
@@ -171,13 +219,25 @@ func (c *GenerateContext) Overload(ns *g.Ident, name string, types []g.Type) *g.
 func (c *GenerateContext) RefType(ns *g.Ident, name string) g.Type {
 	key := Name{ns, name}
 
-	ref, exists := c.types[key]
-	if exists {
-		return ref
-	} else {
-		ref = &TypeRef{ident: &g.Ident{Name: name}}
-		c.types[key] = ref
+	if existing, exists := c.types[key]; exists {
+		if _, ok := existing.(*TypeRef); ok {
+			return existing
+		}
+		return &TypeRef{ident: &g.Ident{Name: name}, binding: existing}
 	}
+
+	if ns != Global {
+		globalKey := Name{Global, name}
+		if globalRef, globalExists := c.types[globalKey]; globalExists {
+			if _, ok := globalRef.(*TypeRef); ok {
+				return globalRef
+			}
+			return &TypeRef{ident: &g.Ident{Name: name}, binding: globalRef}
+		}
+	}
+
+	ref := &TypeRef{ident: &g.Ident{Name: name}}
+	c.types[key] = ref
 
 	return ref
 }
@@ -205,7 +265,7 @@ func (c *GenerateContext) RefTypeExpr(expr ast.TypeExpr, nameHint string, generi
 			}
 		}
 
-		return c.RefType(nil, t.Name.Name.Value)
+		return c.RefType(c.module.Ident, t.Name.Name.Value)
 	case *ast.TypeArrayExpr:
 		slice := &g.Slice{Element: c.RefTypeExpr(t.Element, nameHint, generic)}
 		return c.BindType(c.module.Ident, ToName(slice), slice)
@@ -266,14 +326,15 @@ func (c *GenerateContext) RefEnumMember(enumName, member string) g.Type {
 	}
 	enum.Members = append(enum.Members, &g.EnumMember{Ident: c.DefRef(c.module.Ident, member, g.NameExport), Value: member})
 
-	return c.RefType(nil, enumName)
+	return c.RefType(c.module.Ident, enumName)
 }
 
 func (c *GenerateContext) DefineStruct(iface *ast.InterfaceDecl) {
-	node := g.Struct{
+	node := &g.Struct{
 		Ident: c.Define(c.module.Ident, iface.Ident.Name.Value, g.NameExport, "Type"),
 	}
-	c.module.Structs = append(c.module.Structs, &node)
+	c.module.Structs = append(c.module.Structs, node)
+	c.BindDefinition(c.module.Ident, iface.Ident.Name.Value, node)
 
 	if iface.Extends != nil {
 		for _, parent := range iface.Extends.Interfaces {
@@ -295,7 +356,7 @@ func (c *GenerateContext) DefineStruct(iface *ast.InterfaceDecl) {
 			for _, param := range mem.Params {
 				t := c.RefTypeExpr(param.Type.Type, param.Ident.Name.Value, mem.Generic)
 				params = append(params, &g.Param{
-					Ident: &g.Ident{Name: param.Ident.Name.Value, NameConvention: g.NameParameter},
+					Ident: &g.Ident{Name: escapeKeyword(param.Ident.Name.Value), NameConvention: g.NameParameter},
 					Type:  t,
 				})
 				overloadTypeArgs = append(overloadTypeArgs, t)
@@ -355,19 +416,53 @@ func Generate(w io.Writer, results []Result, names ...string) {
 
 			switch decl := ptr(declIface).(type) {
 			case (*ast.InterfaceDecl):
-				switch decl.Ident.Name.Value {
-				case "WebGLRenderingContextBase", "WebGLRenderingContext", "HTMLCanvasElement", "WebGLRenderingContextOverloads", "Document":
-					c.DefineStruct(decl)
-				}
+				c.DefineStruct(decl)
 			case (*ast.TypeDecl):
-				switch decl.Ident.Name.Value {
-				case "GLenum", "GLsizei", "GLuint", "GLfloat", "GLint", "GLboolean":
-					c.module.Defs = append(c.module.Defs, &g.Def{
-						Ident:  c.Define(c.module.Ident, decl.Ident.Name.Value, g.NameExport),
-						Target: c.RefTypeExpr(decl.Value, "", nil),
-						Alias:  true,
-					})
+				def := &g.Def{
+					Ident:  c.Define(c.module.Ident, decl.Ident.Name.Value, g.NameExport, "Alias"),
+					Target: c.RefTypeExpr(decl.Value, "", nil),
+					Alias:  true,
 				}
+				c.module.Defs = append(c.module.Defs, def)
+				c.BindDefinition(c.module.Ident, decl.Ident.Name.Value, def)
+			case (*ast.GlobalVarDecl):
+				c.module.Vars = append(c.module.Vars, &g.Var{
+					Ident: c.Define(c.module.Ident, decl.Variable.Ident.Ident(), g.NameExport, "Var"),
+					Type:  c.RefTypeExpr(decl.Variable.Type.Type, "", nil),
+				})
+			case (*ast.GlobalConstDecl):
+				// TODO: Handle consts properly, for now mapping to var
+				c.module.Vars = append(c.module.Vars, &g.Var{
+					Ident: c.Define(c.module.Ident, decl.Variable.Ident.Ident(), g.NameExport, "Const"),
+					Type:  c.RefTypeExpr(decl.Variable.Type.Type, "", nil),
+				})
+			case (*ast.FunctionDecl):
+				var params []*g.Param
+				var overloadTypeArgs []g.Type
+
+				for _, param := range decl.Method.Params {
+					t := c.RefTypeExpr(param.Type.Type, param.Ident.Name.Value, decl.Method.Generic)
+					params = append(params, &g.Param{
+						Ident: &g.Ident{Name: escapeKeyword(param.Ident.Name.Value), NameConvention: g.NameParameter},
+						Type:  t,
+					})
+					overloadTypeArgs = append(overloadTypeArgs, t)
+				}
+
+				id := c.Overload(c.module.Ident, decl.Method.Ident.Name.Value, overloadTypeArgs)
+
+				if id == nil {
+					// Resolved overload already exists
+					continue
+				}
+
+				m := g.Method{
+					Ident:  id,
+					Recv:   nil, // Global function
+					Type:   c.RefTypeExpr(decl.Method.Return.Type, "", decl.Method.Generic),
+					Params: params,
+				}
+				c.module.Funcs = append(c.module.Funcs, &m)
 			}
 		}
 	}

@@ -51,18 +51,28 @@ func (a *Assign) Walk(v Visitor) {
 type IfStmt struct {
 	Cond Expr
 	Body *Block
+	Else Stmt
 }
 
 func (i *IfStmt) Print(c PrintContext) {
 	WriteAll(c, If, Space, Lparen, i.Cond, Rparen, i.Body)
+	if i.Else != nil {
+		WriteAll(c, Space, Else, Space, i.Else)
+	}
 }
 
 func (i *IfStmt) Walk(v Visitor) {
 	v.Visit(i.Cond)
 	v.Visit(i.Body)
+	if i.Else != nil {
+		v.Visit(i.Else)
+	}
 }
 
 func (ExprStmt) stmtNode() {}
+func (ExprStmt) declNode() {}
 func (IfStmt) stmtNode()   {}
 func (Assign) stmtNode()   {}
+func (Assign) declNode()   {}
 func (Return) stmtNode()   {}
+func (Block) stmtNode()    {}

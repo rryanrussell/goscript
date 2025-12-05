@@ -66,6 +66,15 @@ func (f *ForEach) Walk(v Visitor) {
 }
 
 func (f *ForEach) Print(c PrintContext) {
+	if f.Key != nil && f.Value != nil {
+		WriteAll(c,
+			For, Space, Lparen,
+			Let, Space, Lbrkt, f.Key.Var, Comma, Space, f.Value.Var, Rbrkt,
+			Space, Of, Space, f.Iterable,
+			Rparen, f.Body,
+		)
+		return
+	}
 	WriteAll(c, For, Space, Lparen,
 		PrintIf(f.Key, f.Key, Space, In),
 		PrintIf(f.Value, f.Value, Space, Of),

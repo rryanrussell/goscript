@@ -12,11 +12,16 @@ func (t Token) Walk(v Visitor) {}
 
 const (
 	Space    Token      = " "
+	Try      Token      = "try"
+	Catch    Token      = "catch"
+	Finally  Token      = "finally"
+	Throw    Token      = "throw"
 	Dot      Token      = "."
 	Comma    Token      = ","
 	Colon    Token      = ":"
 	Eq       Token      = "="
 	If       Token      = "if"
+	Else     Token      = "else"
 	For      Token      = "for"
 	While    Token      = "while"
 	Let      Token      = "let"
@@ -41,6 +46,16 @@ const (
 	Inc      Token      = "++"
 	Dec      Token      = "--"
 	Newline  Token      = "\n"
+	Switch   Token      = "switch"
+	Case     Token      = "case"
+	Default  Token      = "default"
+	Break    Token      = "break"
+	Continue Token      = "continue"
+	Or       Token      = "||"
+	And      Token      = "&&"
+	EqEq     Token      = "=="
+	NotEq    Token      = "!="
+	TypeOf   Token      = "typeof "
 )
 
 type IndentType string
